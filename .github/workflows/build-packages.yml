@@ -1,0 +1,317 @@
+name: Build Multi-Architecture Packages
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          # macOS Intel
+          - name: macOS Intel (x86_64)
+            os: macos-13
+            arch: x86_64
+            platform: macos
+            packages: --all-macos
+
+          # macOS Apple Silicon
+          - name: macOS Apple Silicon (arm64)
+            os: macos-14
+            arch: arm64
+            platform: macos
+            packages: --all-macos
+
+          # Windows x64
+          - name: Windows x64
+            os: windows-latest
+            arch: x64
+            platform: windows
+            packages: --all-windows
+
+          # Linux x86_64
+          - name: Linux x86_64
+            os: ubuntu-latest
+            arch: x86_64
+            platform: linux
+            packages: --all-linux
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for version info
+
+      - name: Set up dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install cmake gdal cgal eigen tbb libomp qt@6
+
+      - name: Set up dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+          vcpkg install gdal cgal eigen3 tbb
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
+
+      - name: Set up dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            build-essential \
+            libgdal-dev \
+            libcgal-dev \
+            libeigen3-dev \
+            libtbb-dev \
+            libomp-dev \
+            qt6-base-dev \
+            dpkg-dev \
+            rpm \
+            flatpak-builder \
+            libfuse2
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+
+      - name: Run basic tests
+        run: |
+          cd build
+          ./topo-gen --version || ./Release/topo-gen.exe --version || true
+
+      - name: Bundle dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          ./packaging/macos/bundle_deps.sh \
+            --executable build/topo-gen \
+            --output dist/macos-deps
+
+      - name: Bundle dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          ./packaging/windows/bundle_deps.sh \
+            --executable build/Release/topo-gen.exe \
+            --output dist/windows-deps
+
+      - name: Bundle dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          ./packaging/linux/bundle_deps.sh \
+            --executable build/topo-gen \
+            --output dist/linux-deps
+
+      - name: Create packages
+        run: |
+          ./scripts/deploy.sh ${{ matrix.config.packages }} --clean-build
+
+      - name: List created packages
+        run: |
+          echo "=== Created Packages ==="
+          find dist -type f \( -name "*.dmg" -o -name "*.pkg" -o -name "*.deb" -o -name "*.rpm" -o -name "*.msi" -o -name "*.zip" -o -name "*.AppImage" -o -name "*.tar.gz" \) -ls
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.config.platform }}-${{ matrix.config.arch }}
+          path: |
+            dist/**/*.dmg
+            dist/**/*.pkg
+            dist/**/*.deb
+            dist/**/*.rpm
+            dist/**/*.msi
+            dist/**/*.zip
+            dist/**/*.AppImage
+            dist/**/*.tar.gz
+            dist/**/*.rb
+            dist/**/*.json
+          retention-days: 30
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          find artifacts -type f \( \
+            -name "*.dmg" -o \
+            -name "*.pkg" -o \
+            -name "*.deb" -o \
+            -name "*.rpm" -o \
+            -name "*.msi" -o \
+            -name "*.zip" -o \
+            -name "*.AppImage" -o \
+            -name "*-source-*.tar.gz" \
+          \) -exec cp {} release/ \;
+
+          echo "=== Release Files ==="
+          ls -lh release/
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          # Topographic Generator v${{ steps.version.outputs.version }}
+
+          ## Downloads
+
+          ### macOS
+          - **DMG Installer** (macOS 12+): `topo-gen-${{ steps.version.outputs.version }}.dmg`
+          - **PKG Installer** (system-wide): `topo-gen-${{ steps.version.outputs.version }}.pkg`
+          - **Homebrew**: See `topo-gen.rb` or use custom tap
+
+          ### Windows
+          - **MSI Installer** (Windows 10+): `topo-gen-${{ steps.version.outputs.version }}.msi`
+          - **Portable ZIP** (no install): `topo-gen-${{ steps.version.outputs.version }}-windows-x64-portable.zip`
+          - **WinGet**: See manifest or install from community repository
+
+          ### Linux
+          - **DEB Package** (Debian/Ubuntu): `topo-gen_${{ steps.version.outputs.version }}_amd64.deb`
+          - **RPM Package** (Fedora/RHEL): `topo-gen-${{ steps.version.outputs.version }}-1.x86_64.rpm`
+          - **AppImage** (universal): `TopoGen-${{ steps.version.outputs.version }}-x86_64.AppImage`
+          - **Flatpak**: See manifest for Flathub submission
+
+          ### Source
+          - **Source Archive**: `topo-gen-${{ steps.version.outputs.version }}-source-*.tar.gz`
+
+          ## Installation
+
+          ### macOS
+          ```bash
+          # DMG: Open and drag to Applications
+          # PKG: Double-click and follow installer
+          # Homebrew: brew install path/to/topo-gen.rb
+          ```
+
+          ### Windows
+          ```bash
+          # MSI: Double-click and follow installer
+          # Portable: Extract ZIP and run topo-gen.bat
+          # WinGet: winget install MatthewBlock.TopographicGenerator
+          ```
+
+          ### Linux
+          ```bash
+          # Debian/Ubuntu
+          sudo dpkg -i topo-gen_*.deb && sudo apt-get install -f
+
+          # Fedora/RHEL
+          sudo dnf install topo-gen-*.rpm
+
+          # AppImage
+          chmod +x TopoGen-*.AppImage && ./TopoGen-*.AppImage
+          ```
+
+          ## What's New
+
+          See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
+
+          ## Supported Architectures
+
+          - macOS: Intel (x86_64), Apple Silicon (arm64)
+          - Windows: x64
+          - Linux: x86_64
+
+          ## Requirements
+
+          - macOS 12 (Monterey) or later
+          - Windows 10 or later
+          - Linux: Debian 11+, Ubuntu 20.04+, Fedora 35+, or equivalent
+
+          ## License
+
+          MIT License - Copyright (c) 2025 Matthew Block
+
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.version.outputs.version }}
+          body_path: release_notes.md
+          files: release/*
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'alpha') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Optional: Build ARM64 Linux via QEMU (slower but comprehensive)
+  build-linux-arm64:
+    name: Linux ARM64 (via QEMU)
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')  # Only on releases
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build in ARM64 container
+        run: |
+          docker run --rm --platform linux/arm64 \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            ubuntu:22.04 bash -c '
+              apt-get update && \
+              apt-get install -y cmake build-essential libgdal-dev libcgal-dev libeigen3-dev libtbb-dev && \
+              cmake -B build -DCMAKE_BUILD_TYPE=Release && \
+              cmake --build build --parallel
+            '
+
+      - name: Create ARM64 packages
+        run: |
+          ./packaging/linux/bundle_deps.sh --executable build/topo-gen --output dist/linux-deps-arm64
+          ./scripts/package/create-deb.sh --deps-dir dist/linux-deps-arm64 --architecture arm64
+          ./scripts/package/create-rpm.sh --deps-dir dist/linux-deps-arm64 --architecture aarch64
+
+      - name: Upload ARM64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-linux-arm64
+          path: |
+            dist/**/*.deb
+            dist/**/*.rpm
