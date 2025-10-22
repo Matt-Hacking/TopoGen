@@ -189,9 +189,13 @@ Package Format Options:
     --dmg               Create macOS DMG installer (macOS only)
     --pkg               Create macOS PKG installer (macOS only)
     --homebrew          Generate Homebrew formula
+    --msi               Create Windows MSI installer (generates WiX sources)
+    --winget            Generate WinGet package manifest
+    --portable-zip      Create portable Windows ZIP package
     --platform PLATFORM Target platform: macos, linux, windows, source
     --all               Create all packages (source + binary for current platform)
     --all-macos         Create all macOS packages (binary, DMG, PKG, Homebrew)
+    --all-windows       Create all Windows packages (binary, MSI, WinGet, portable ZIP)
 
 Build Options:
     --clean-build       Clean and rebuild before packaging
@@ -229,6 +233,18 @@ Examples:
     # Create all macOS packages
     $0 --all-macos --clean-build
 
+    # Create Windows MSI installer (WiX sources)
+    $0 --msi
+
+    # Generate WinGet manifest
+    $0 --winget
+
+    # Create portable Windows ZIP
+    $0 --portable-zip
+
+    # Create all Windows packages
+    $0 --all-windows --clean-build
+
     # Create specific platform package
     $0 --platform macos --binary --bundle-deps
 
@@ -245,6 +261,9 @@ CREATE_BINARY=false
 CREATE_DMG=false
 CREATE_PKG=false
 CREATE_HOMEBREW=false
+CREATE_MSI=false
+CREATE_WINGET=false
+CREATE_PORTABLE_ZIP=false
 CLEAN_BUILD=false
 BUNDLE_DEPS=true
 OUTPUT_DIR="$PROJECT_ROOT/dist"
@@ -273,6 +292,18 @@ while [[ $# -gt 0 ]]; do
             CREATE_HOMEBREW=true
             shift
             ;;
+        --msi)
+            CREATE_MSI=true
+            shift
+            ;;
+        --winget)
+            CREATE_WINGET=true
+            shift
+            ;;
+        --portable-zip)
+            CREATE_PORTABLE_ZIP=true
+            shift
+            ;;
         --platform)
             TARGET_PLATFORM="$2"
             shift 2
@@ -288,6 +319,14 @@ while [[ $# -gt 0 ]]; do
             CREATE_DMG=true
             CREATE_PKG=true
             CREATE_HOMEBREW=true
+            shift
+            ;;
+        --all-windows)
+            CREATE_SOURCE=true
+            CREATE_BINARY=true
+            CREATE_MSI=true
+            CREATE_WINGET=true
+            CREATE_PORTABLE_ZIP=true
             shift
             ;;
         --clean-build)
@@ -619,6 +658,135 @@ if [[ "$CREATE_HOMEBREW" == true ]]; then
     fi
 fi
 
+# Create MSI installer (Windows only)
+if [[ "$CREATE_MSI" == true ]]; then
+    log_info "Creating MSI installer (WiX sources)..."
+
+    MSI_SCRIPT="$SCRIPT_DIR/package/create-msi.sh"
+
+    # Check if dependencies are bundled
+    DEPS_DIR="$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}/topo-gen-${VERSION}/lib"
+
+    if [[ ! -d "$DEPS_DIR" ]]; then
+        # Try alternative location
+        DEPS_DIR="dist/windows-deps"
+        if [[ ! -d "$DEPS_DIR" ]]; then
+            log_warning "Dependencies directory not found"
+            log_info "Run with --binary --bundle-deps first, or specify --deps-dir"
+            CREATE_MSI=false
+        fi
+    fi
+
+    if [[ "$CREATE_MSI" == true && -x "$MSI_SCRIPT" ]]; then
+        MSI_CMD=(
+            "$MSI_SCRIPT"
+            --version "$VERSION"
+            --output-dir "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"
+        )
+
+        # Add CLI if exists
+        if [[ -f "build/topo-gen.exe" ]]; then
+            MSI_CMD+=(--cli "build/topo-gen.exe")
+        else
+            MSI_CMD+=(--no-cli)
+        fi
+
+        # Add GUI if exists
+        if [[ -f "build/topo-gen-gui.exe" ]]; then
+            MSI_CMD+=(--gui "build/topo-gen-gui.exe")
+        else
+            MSI_CMD+=(--no-gui)
+        fi
+
+        # Add deps directory
+        MSI_CMD+=(--deps-dir "$DEPS_DIR")
+
+        "${MSI_CMD[@]}"
+        log_success "MSI WiX sources created"
+        log_info "To compile on Windows: cd wix-sources && build.bat"
+    elif [[ ! -x "$MSI_SCRIPT" ]]; then
+        log_error "MSI script not found or not executable: $MSI_SCRIPT"
+    fi
+fi
+
+# Create WinGet manifest
+if [[ "$CREATE_WINGET" == true ]]; then
+    log_info "Generating WinGet manifest..."
+
+    WINGET_SCRIPT="$SCRIPT_DIR/package/create-winget.sh"
+
+    # Check if MSI exists or use placeholder
+    MSI_FILE=$(ls -t "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"/*.msi 2>/dev/null | head -1)
+
+    if [[ -z "$MSI_FILE" ]]; then
+        log_warning "MSI file not found, using placeholder URL"
+        MSI_URL="https://github.com/matthewblock/topo-gen/releases/download/v${VERSION}/topo-gen-${VERSION}.msi"
+    else
+        MSI_URL="$MSI_FILE"
+    fi
+
+    if [[ -x "$WINGET_SCRIPT" ]]; then
+        "$WINGET_SCRIPT" \
+            --installer-url "$MSI_URL" \
+            --version "$VERSION" \
+            --output-dir "$OUTPUT_DIR/winget"
+
+        log_success "WinGet manifest created"
+        if [[ -z "$MSI_FILE" ]]; then
+            log_warning "Update installer URL in manifest before submission"
+        fi
+    else
+        log_error "WinGet script not found or not executable: $WINGET_SCRIPT"
+    fi
+fi
+
+# Create portable ZIP (Windows)
+if [[ "$CREATE_PORTABLE_ZIP" == true ]]; then
+    log_info "Creating portable Windows ZIP package..."
+
+    PORTABLE_SCRIPT="$SCRIPT_DIR/package/create-portable-zip.sh"
+
+    # Check if dependencies are bundled
+    DEPS_DIR="$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}/topo-gen-${VERSION}/lib"
+
+    if [[ ! -d "$DEPS_DIR" ]]; then
+        DEPS_DIR="dist/windows-deps"
+        if [[ ! -d "$DEPS_DIR" ]]; then
+            log_warning "Dependencies directory not found"
+            log_info "Run with --binary --bundle-deps first"
+            CREATE_PORTABLE_ZIP=false
+        fi
+    fi
+
+    if [[ "$CREATE_PORTABLE_ZIP" == true && -x "$PORTABLE_SCRIPT" ]]; then
+        PORTABLE_CMD=(
+            "$PORTABLE_SCRIPT"
+            --version "$VERSION"
+            --output-dir "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"
+            --deps-dir "$DEPS_DIR"
+        )
+
+        # Add CLI if exists
+        if [[ -f "build/topo-gen.exe" ]]; then
+            PORTABLE_CMD+=(--cli "build/topo-gen.exe")
+        else
+            PORTABLE_CMD+=(--no-cli)
+        fi
+
+        # Add GUI if exists
+        if [[ -f "build/topo-gen-gui.exe" ]]; then
+            PORTABLE_CMD+=(--gui "build/topo-gen-gui.exe")
+        else
+            PORTABLE_CMD+=(--no-gui)
+        fi
+
+        "${PORTABLE_CMD[@]}"
+        log_success "Portable ZIP created"
+    elif [[ ! -x "$PORTABLE_SCRIPT" ]]; then
+        log_error "Portable ZIP script not found or not executable: $PORTABLE_SCRIPT"
+    fi
+fi
+
 echo ""
 log_success "Deployment completed successfully!"
 log_info "Output directory: $OUTPUT_DIR"
@@ -650,6 +818,21 @@ if [[ "$CREATE_HOMEBREW" == true && -d "$OUTPUT_DIR/homebrew" ]]; then
     ls -lh "$OUTPUT_DIR/homebrew"/*.rb 2>/dev/null | tail -1 | awk '{print "  " $9, "(" $5 ")"}'
 fi
 
+if [[ "$CREATE_MSI" == true && -d "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}/wix-sources" ]]; then
+    echo "MSI installer (WiX sources):"
+    echo "  $OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}/wix-sources/"
+fi
+
+if [[ "$CREATE_WINGET" == true && -d "$OUTPUT_DIR/winget" ]]; then
+    echo "WinGet manifest:"
+    echo "  $OUTPUT_DIR/winget/manifests/"
+fi
+
+if [[ "$CREATE_PORTABLE_ZIP" == true ]]; then
+    echo "Portable ZIP:"
+    ls -lh "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"/*-portable.zip 2>/dev/null | tail -1 | awk '{print "  " $9, "(" $5 ")"}'
+fi
+
 echo ""
 log_info "To test packages:"
 
@@ -677,6 +860,23 @@ fi
 if [[ "$CREATE_HOMEBREW" == true ]]; then
     echo "  Homebrew:"
     echo "    brew install --build-from-source dist/homebrew/topo-gen.rb"
+fi
+
+if [[ "$CREATE_MSI" == true ]]; then
+    echo "  MSI:"
+    echo "    On Windows: cd wix-sources && build.bat"
+    echo "    Then: Double-click topo-gen.msi"
+fi
+
+if [[ "$CREATE_WINGET" == true ]]; then
+    echo "  WinGet:"
+    echo "    winget validate dist/winget/manifests/..."
+    echo "    winget install --manifest dist/winget/manifests/..."
+fi
+
+if [[ "$CREATE_PORTABLE_ZIP" == true ]]; then
+    echo "  Portable ZIP:"
+    echo "    Extract ZIP and run topo-gen.bat or topo-gen-gui.exe"
 fi
 
 echo ""
