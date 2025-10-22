@@ -18,8 +18,15 @@
 #include <CGAL/Triangulation_face_base_with_info_2.h>
 #include <CGAL/partition_2.h>
 #include <CGAL/Partition_traits_2.h>
-#include <CGAL/Polygon_repair/repair.h>
-#include <CGAL/Multipolygon_with_holes_2.h>
+
+// Polygon repair is available in CGAL 5.4+, but may not be in all package distributions
+#if __has_include(<CGAL/Polygon_repair/repair.h>)
+    #include <CGAL/Polygon_repair/repair.h>
+    #include <CGAL/Multipolygon_with_holes_2.h>
+    #define HAVE_CGAL_POLYGON_REPAIR 1
+#else
+    #define HAVE_CGAL_POLYGON_REPAIR 0
+#endif
 
 // No external dependencies needed for simple mesh cleanup
 
@@ -847,7 +854,9 @@ std::vector<std::array<size_t, 3>> MeshBuilder::triangulate_polygon_seidel(
     using Point_2 = K::Point_2;
     using Polygon_2 = CGAL::Polygon_2<K, std::list<Point_2>>;  // list container for partition compatibility
     using Polygon_list = std::list<Polygon_2>;
+#if HAVE_CGAL_POLYGON_REPAIR
     using Multipolygon_2 = CGAL::Multipolygon_with_holes_2<K, std::list<Point_2>>;
+#endif
 
     // Convert to CGAL polygon
     Polygon_2 polygon;
@@ -861,6 +870,7 @@ std::vector<std::array<size_t, 3>> MeshBuilder::triangulate_polygon_seidel(
     std::vector<Polygon_2> simple_polygons;
 
     if (!polygon.is_simple()) {
+#if HAVE_CGAL_POLYGON_REPAIR
         // Polygon has self-intersections - repair it
         logger_.debug("  Detected self-intersecting polygon with " + std::to_string(vertices.size()) + " vertices - repairing...");
 
@@ -887,6 +897,14 @@ std::vector<std::array<size_t, 3>> MeshBuilder::triangulate_polygon_seidel(
                               " holes (unexpected for contour polygon)");
             }
         }
+#else
+        // Polygon repair not available - skip this polygon with a warning
+        logger_.warning("  Detected self-intersecting polygon with " + std::to_string(vertices.size()) +
+                       " vertices - skipping (CGAL Polygon_repair not available in this build)");
+        logger_.warning("  To enable polygon repair, install CGAL 5.4+ with polygon repair support");
+        // Return early - don't process this polygon
+        return triangles;
+#endif
     } else {
         // Polygon is already simple - safe to check orientation
         if (polygon.orientation() == CGAL::CLOCKWISE) {

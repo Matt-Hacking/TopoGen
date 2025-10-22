@@ -62,16 +62,17 @@ jobs:
 
       - name: Setup vcpkg binary cache (Windows)
         if: runner.os == 'Windows'
-        shell: bash
+        shell: pwsh
         run: |
-          mkdir -p $HOME/.vcpkg/archives
-          echo "VCPKG_DEFAULT_BINARY_CACHE=$HOME/.vcpkg/archives" >> $GITHUB_ENV
+          $cacheDir = "$env:LOCALAPPDATA\vcpkg\archives"
+          New-Item -ItemType Directory -Force -Path $cacheDir
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$cacheDir" >> $env:GITHUB_ENV
 
       - name: Cache vcpkg packages (Windows)
         if: runner.os == 'Windows'
         uses: actions/cache@v4
         with:
-          path: ~/.vcpkg/archives
+          path: C:\Users\runneradmin\AppData\Local\vcpkg\archives
           key: ${{ runner.os }}-vcpkg-${{ hashFiles('.github/workflows/build-packages.yml') }}
           restore-keys: |
             ${{ runner.os }}-vcpkg-
