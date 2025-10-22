@@ -192,10 +192,15 @@ Package Format Options:
     --msi               Create Windows MSI installer (generates WiX sources)
     --winget            Generate WinGet package manifest
     --portable-zip      Create portable Windows ZIP package
+    --deb               Create Debian/Ubuntu DEB package
+    --rpm               Create Fedora/RHEL RPM package
+    --flatpak           Generate Flatpak manifest
+    --appimage          Create AppImage portable package
     --platform PLATFORM Target platform: macos, linux, windows, source
     --all               Create all packages (source + binary for current platform)
     --all-macos         Create all macOS packages (binary, DMG, PKG, Homebrew)
     --all-windows       Create all Windows packages (binary, MSI, WinGet, portable ZIP)
+    --all-linux         Create all Linux packages (binary, DEB, RPM, Flatpak, AppImage)
 
 Build Options:
     --clean-build       Clean and rebuild before packaging
@@ -264,6 +269,10 @@ CREATE_HOMEBREW=false
 CREATE_MSI=false
 CREATE_WINGET=false
 CREATE_PORTABLE_ZIP=false
+CREATE_DEB=false
+CREATE_RPM=false
+CREATE_FLATPAK=false
+CREATE_APPIMAGE=false
 CLEAN_BUILD=false
 BUNDLE_DEPS=true
 OUTPUT_DIR="$PROJECT_ROOT/dist"
@@ -304,6 +313,22 @@ while [[ $# -gt 0 ]]; do
             CREATE_PORTABLE_ZIP=true
             shift
             ;;
+        --deb)
+            CREATE_DEB=true
+            shift
+            ;;
+        --rpm)
+            CREATE_RPM=true
+            shift
+            ;;
+        --flatpak)
+            CREATE_FLATPAK=true
+            shift
+            ;;
+        --appimage)
+            CREATE_APPIMAGE=true
+            shift
+            ;;
         --platform)
             TARGET_PLATFORM="$2"
             shift 2
@@ -327,6 +352,15 @@ while [[ $# -gt 0 ]]; do
             CREATE_MSI=true
             CREATE_WINGET=true
             CREATE_PORTABLE_ZIP=true
+            shift
+            ;;
+        --all-linux)
+            CREATE_SOURCE=true
+            CREATE_BINARY=true
+            CREATE_DEB=true
+            CREATE_RPM=true
+            CREATE_FLATPAK=true
+            CREATE_APPIMAGE=true
             shift
             ;;
         --clean-build)
@@ -787,6 +821,70 @@ if [[ "$CREATE_PORTABLE_ZIP" == true ]]; then
     fi
 fi
 
+# Create DEB package (Linux)
+if [[ "$CREATE_DEB" == true ]]; then
+    log_info "Creating DEB package..."
+    DEB_SCRIPT="$SCRIPT_DIR/package/create-deb.sh"
+    DEPS_DIR="$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}/topo-gen-${VERSION}/lib"
+    [[ ! -d "$DEPS_DIR" ]] && DEPS_DIR="dist/linux-deps"
+
+    if [[ -d "$DEPS_DIR" && -x "$DEB_SCRIPT" ]]; then
+        "$DEB_SCRIPT" --deps-dir "$DEPS_DIR" --version "$VERSION" --output-dir "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"
+        log_success "DEB package created"
+    else
+        log_warning "Cannot create DEB (missing dependencies or script)"
+    fi
+fi
+
+# Create RPM package (Linux)
+if [[ "$CREATE_RPM" == true ]]; then
+    log_info "Creating RPM package..."
+    RPM_SCRIPT="$SCRIPT_DIR/package/create-rpm.sh"
+    DEPS_DIR="$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}/topo-gen-${VERSION}/lib"
+    [[ ! -d "$DEPS_DIR" ]] && DEPS_DIR="dist/linux-deps"
+
+    if [[ -d "$DEPS_DIR" && -x "$RPM_SCRIPT" ]]; then
+        "$RPM_SCRIPT" --deps-dir "$DEPS_DIR" --version "$VERSION" --output-dir "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"
+        log_success "RPM package created"
+    else
+        log_warning "Cannot create RPM (missing dependencies or script)"
+    fi
+fi
+
+# Create Flatpak manifest
+if [[ "$CREATE_FLATPAK" == true ]]; then
+    log_info "Generating Flatpak manifest..."
+    FLATPAK_SCRIPT="$SCRIPT_DIR/package/create-flatpak.sh"
+    SOURCE_TARBALL=$(ls -t "$OUTPUT_DIR/source"/topo-gen-${VERSION}-source-*.tar.gz 2>/dev/null | head -1)
+
+    if [[ -z "$SOURCE_TARBALL" ]]; then
+        log_warning "Source tarball not found for Flatpak"
+        SOURCE_URL="https://github.com/matthewblock/topo-gen/archive/v${VERSION}.tar.gz"
+    else
+        SOURCE_URL="$SOURCE_TARBALL"
+    fi
+
+    if [[ -x "$FLATPAK_SCRIPT" ]]; then
+        "$FLATPAK_SCRIPT" --source-url "$SOURCE_URL" --version "$VERSION" --output-dir "$OUTPUT_DIR/flatpak"
+        log_success "Flatpak manifest created"
+    fi
+fi
+
+# Create AppImage
+if [[ "$CREATE_APPIMAGE" == true ]]; then
+    log_info "Creating AppImage..."
+    APPIMAGE_SCRIPT="$SCRIPT_DIR/package/create-appimage.sh"
+    DEPS_DIR="$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}/topo-gen-${VERSION}/lib"
+    [[ ! -d "$DEPS_DIR" ]] && DEPS_DIR="dist/linux-deps"
+
+    if [[ -d "$DEPS_DIR" && -x "$APPIMAGE_SCRIPT" ]]; then
+        "$APPIMAGE_SCRIPT" --deps-dir "$DEPS_DIR" --version "$VERSION" --output-dir "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"
+        log_success "AppImage created"
+    else
+        log_warning "Cannot create AppImage (missing dependencies or script)"
+    fi
+fi
+
 echo ""
 log_success "Deployment completed successfully!"
 log_info "Output directory: $OUTPUT_DIR"
@@ -833,6 +931,26 @@ if [[ "$CREATE_PORTABLE_ZIP" == true ]]; then
     ls -lh "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"/*-portable.zip 2>/dev/null | tail -1 | awk '{print "  " $9, "(" $5 ")"}'
 fi
 
+if [[ "$CREATE_DEB" == true ]]; then
+    echo "DEB package:"
+    ls -lh "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"/*.deb 2>/dev/null | tail -1 | awk '{print "  " $9, "(" $5 ")"}'
+fi
+
+if [[ "$CREATE_RPM" == true ]]; then
+    echo "RPM package:"
+    ls -lh "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"/*.rpm 2>/dev/null | tail -1 | awk '{print "  " $9, "(" $5 ")"}'
+fi
+
+if [[ "$CREATE_FLATPAK" == true ]]; then
+    echo "Flatpak manifest:"
+    echo "  $OUTPUT_DIR/flatpak/*.json"
+fi
+
+if [[ "$CREATE_APPIMAGE" == true ]]; then
+    echo "AppImage:"
+    ls -lh "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"/TopoGen-*.AppImage 2>/dev/null | tail -1 | awk '{print "  " $9, "(" $5 ")"}'
+fi
+
 echo ""
 log_info "To test packages:"
 
@@ -877,6 +995,32 @@ fi
 if [[ "$CREATE_PORTABLE_ZIP" == true ]]; then
     echo "  Portable ZIP:"
     echo "    Extract ZIP and run topo-gen.bat or topo-gen-gui.exe"
+fi
+
+if [[ "$CREATE_DEB" == true ]]; then
+    echo "  DEB:"
+    echo "    sudo dpkg -i dist/${TARGET_PLATFORM}-${ARCHITECTURE}/*.deb"
+    echo "    sudo apt-get install -f  # Install dependencies"
+    echo "    topo-gen --version"
+fi
+
+if [[ "$CREATE_RPM" == true ]]; then
+    echo "  RPM:"
+    echo "    sudo rpm -i dist/${TARGET_PLATFORM}-${ARCHITECTURE}/*.rpm"
+    echo "    Or: sudo dnf install dist/${TARGET_PLATFORM}-${ARCHITECTURE}/*.rpm"
+    echo "    topo-gen --version"
+fi
+
+if [[ "$CREATE_FLATPAK" == true ]]; then
+    echo "  Flatpak:"
+    echo "    flatpak-builder build-dir dist/flatpak/*.json"
+    echo "    flatpak-builder --run build-dir dist/flatpak/*.json topo-gen-gui"
+fi
+
+if [[ "$CREATE_APPIMAGE" == true ]]; then
+    echo "  AppImage:"
+    echo "    chmod +x dist/${TARGET_PLATFORM}-${ARCHITECTURE}/TopoGen-*.AppImage"
+    echo "    ./dist/${TARGET_PLATFORM}-${ARCHITECTURE}/TopoGen-*.AppImage"
 fi
 
 echo ""
