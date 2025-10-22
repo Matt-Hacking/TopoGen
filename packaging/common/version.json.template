@@ -1,0 +1,37 @@
+{
+  "name": "Topographic Generator",
+  "version": "${VERSION}",
+  "build": {
+    "date": "${BUILD_DATE}",
+    "commit": "${GIT_COMMIT}",
+    "tag": "${GIT_TAG}",
+    "platform": "${PLATFORM}",
+    "architecture": "${ARCHITECTURE}",
+    "type": "${BUILD_TYPE}"
+  },
+  "executables": {
+    "cli": "topo-gen",
+    "gui": "topo-gen-gui"
+  },
+  "dependencies": {
+    "cgal": "${CGAL_VERSION}",
+    "gdal": "${GDAL_VERSION}",
+    "eigen": "${EIGEN_VERSION}",
+    "tbb": "${TBB_VERSION}",
+    "qt": "${QT_VERSION}",
+    "openmp": "${OPENMP_VERSION}"
+  },
+  "checksums": {
+    "sha256": "${SHA256}",
+    "md5": "${MD5}"
+  },
+  "package": {
+    "format": "${PACKAGE_FORMAT}",
+    "filename": "${PACKAGE_FILENAME}",
+    "size_bytes": "${PACKAGE_SIZE}"
+  },
+  "license": "MIT",
+  "copyright": "Copyright (c) 2025 Matthew Block",
+  "homepage": "https://github.com/matthewblock/topo-gen",
+  "documentation": "https://github.com/matthewblock/topo-gen/blob/main/README.md"
+}

@@ -1,0 +1,188 @@
+# C++ Topographic Generator - Git Ignore File
+# ============================================
+
+# AI Assistant Files (Private - NOT for Git)
+# -------------------------------------------
+CLAUDE.md
+CLAUDE_NOTES/
+.claude/
+
+# Local directories
+# -----------------
+archive/
+development_docs/
+fixes/
+node_modules/
+version_control/
+
+# Build Artifacts
+# ---------------
+build/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# Distribution Artifacts
+# ----------------------
+dist/**/*.tar.gz
+dist/**/*.tar.bz2
+dist/**/*.zip
+dist/**/*.dmg
+dist/**/*.pkg
+dist/**/*.msi
+dist/**/*.deb
+dist/**/*.rpm
+dist/**/*.AppImage
+dist/**/*.flatpak
+# Keep directory structure (.gitkeep files and version.json)
+!dist/**/.gitkeep
+!dist/**/version.json
+
+# Version Control Archives
+# ------------------------
+version_control/*.zip
+version_control/*.tar.gz
+version_control/*.tar.bz2
+# Keep notes and directory
+!version_control/*.md
+!version_control/.gitkeep
+
+# Cache and Downloaded Data
+# -------------------------
+cache/
+*.hgt
+*.tif
+*.tiff
+
+# Test Outputs
+# ------------
+test/output/
+test/*.stl
+test/*.svg
+test/*.obj
+test/*.ply
+test/*.geojson
+
+# Generated Output Files
+# ----------------------
+output/
+*.stl
+*.svg
+*.obj
+*.ply
+*.iges
+*.step
+*.nurbs
+*.geojson
+*.shp
+*.dbf
+*.shx
+*.prj
+
+# Logs and Temporary Files
+# ------------------------
+*.log
+*.tmp
+*.temp
+*.bak
+*~
+.*.swp
+.*.swo
+
+# macOS Specific
+# --------------
+.DS_Store
+._*
+*.app/
+# Keep packaged .app bundles for distribution
+!dist/**/*.app/
+
+# IDE and Editor Files
+# --------------------
+.vscode/
+.idea/
+*.user
+*.suo
+*.sln.docstates
+*.code-workspace
+
+# Python (if any utilities)
+# -------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+
+# Documentation Build
+# -------------------
+doc/_build/
+doc/html/
+doc/latex/
+
+# Qt Generated Files
+# ------------------
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+*.qm
+
+# Profiling and Debugging
+# -----------------------
+*.dSYM/
+*.gcda
+*.gcno
+*.gcov
+callgrind.out.*
+massif.out.*
+perf.data
+perf.data.old
+
+# Certificates and Keys (security)
+# --------------------------------
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+
+# Package Manager Files
+# ---------------------
+Thumbs.db
+*.idb
+*.pdb
+*.ilk
+*.msi
+*.msm
+*.msp
+
+# Keep Important Configuration Files
+# ----------------------------------
+# .gitignore files themselves should be tracked!
+!.gitignore
+!**/.gitignore
+
+# Keep packaging templates and scripts
+!packaging/**/*.template
+!packaging/**/*.plist
+!packaging/**/*.wxs
+!packaging/**/*.spec
+!packaging/**/control
+!packaging/**/rules
+!packaging/**/*.yml
+!packaging/**/*.sh
+!packaging/**/*.md

@@ -1,0 +1,350 @@
+{
+  // ============================================================================
+  // TOPOGRAPHIC GENERATOR - ANNOTATED CONFIGURATION FILE
+  // ============================================================================
+  // This file demonstrates all available configuration options with detailed
+  // explanations. Copy this file and modify values to create custom models.
+  //
+  // Note: This file uses JSONC format (JSON with Comments). Most modern JSON
+  // parsers support this format. If your parser doesn't, remove all lines
+  // starting with // before use.
+  // ============================================================================
+
+  // ============================================================================
+  // GEOGRAPHIC BOUNDS
+  // ============================================================================
+  // Define the geographic area to model using WGS84 decimal degrees
+
+  // Northwest corner latitude in decimal degrees (-90 to +90)
+  // Positive = North, Negative = South
+  // Default: 63.1497 (Mount Denali, Alaska)
+  "upper_left_lat": 63.1497,
+
+  // Northwest corner longitude in decimal degrees (-180 to +180)
+  // Negative = West, Positive = East
+  // Default: -151.1847 (Mount Denali, Alaska)
+  "upper_left_lon": -151.1847,
+
+  // Southeast corner latitude in decimal degrees (-90 to +90)
+  // Must be less than upper_left_lat
+  // Default: 62.9887 (Mount Denali, Alaska)
+  "lower_right_lat": 62.9887,
+
+  // Southeast corner longitude in decimal degrees (-180 to +180)
+  // Default: -150.8293 (Mount Denali, Alaska)
+  "lower_right_lon": -150.8293,
+
+  // ============================================================================
+  // OUTPUT CONFIGURATION
+  // ============================================================================
+
+  // Base filename for all output files (no extension)
+  // Output files will be named: {base_name}_layer_1.svg, etc.
+  // Default: "mount_denali"
+  "base_name": "mount_denali",
+
+  // Output directory for generated files
+  // Will be created if it doesn't exist
+  // Default: "output"
+  "output_dir": "output",
+
+  // Output file formats (comma-separated)
+  // Options: svg, stl, obj, ply
+  // - svg: Vector graphics for laser cutting (millimeters)
+  // - stl: Binary STL for 3D printing (millimeters)
+  // - obj: OBJ mesh with optional materials/colors
+  // - ply: Stanford PLY format
+  // Default: "svg"
+  "output_formats": "svg",
+
+  // Generate a single stacked 3D model (in addition to individual layers)
+  // true: Create {base_name}_stacked.{format} files
+  // false: Only create individual layer files
+  // Default: false
+  "output_stacked": false,
+
+  // ============================================================================
+  // LAYER CONFIGURATION
+  // ============================================================================
+
+  // Number of cutting layers to generate
+  // More layers = finer vertical resolution but more complex assembly
+  // Typical range: 5-15 layers
+  // Default: 7
+  "num_layers": 7,
+
+  // Elevation difference between layers (in meters)
+  // null: Auto-calculate based on elevation range and num_layers
+  // number: Explicit elevation step (may result in different num_layers)
+  // Default: 21.43 (auto-calculated for Mount Denali)
+  "height_per_layer": 21.43,
+
+  // Physical thickness of cutting material (millimeters)
+  // Used for calculating stacked model height and spacing
+  // Common values: 3.0mm (acrylic/wood), 1.5mm (cardboard)
+  // Default: 3.0
+  "layer_thickness_mm": 3.0,
+
+  // Force generation of all layers even if some are empty
+  // true: Generate empty layers (useful for consistent layer numbering)
+  // false: Skip empty layers
+  // Default: false
+  "force_all_layers": false,
+
+  // ============================================================================
+  // SUBSTRATE AND SCALING
+  // ============================================================================
+
+  // Target substrate size (millimeters)
+  // Model will be scaled to fit within a square substrate of this size
+  // null: No scaling (use geographic scale)
+  // Common values: 200, 300, 400, 500 (mm)
+  // Default: 200.0
+  "substrate_size_mm": 200.0,
+
+  // Substrate depth/thickness (millimeters)
+  // null: Not used (layers are self-supporting)
+  // number: Depth for embedding layers in substrate
+  // Default: null
+  "substrate_depth_mm": null,
+
+  // Legacy option: Total cutting bed size (replaced by substrate_size_mm)
+  // Default: null
+  "cutting_bed_size_mm": null,
+
+  // Legacy option: Cutting bed X dimension (replaced by substrate_size_mm)
+  // Default: null
+  "cutting_bed_x_mm": null,
+
+  // Legacy option: Cutting bed Y dimension (replaced by substrate_size_mm)
+  // Default: null
+  "cutting_bed_y_mm": null,
+
+  // ============================================================================
+  // CONTOUR PROCESSING
+  // ============================================================================
+
+  // Douglas-Peucker simplification tolerance (map units, typically meters)
+  // Higher values = simpler contours, faster cutting, less detail
+  // Lower values = more complex contours, detailed features
+  // 0: No simplification
+  // Typical range: 1.0-10.0
+  // Default: 5.0
+  "simplify_tolerance": 5.0,
+
+  // Number of Chaikin smoothing iterations
+  // Smoothing reduces sharp corners, creates more natural-looking contours
+  // 0: No smoothing
+  // 1: Light smoothing
+  // 2-3: Moderate smoothing
+  // 4+: Heavy smoothing (may lose detail)
+  // Default: 1
+  "smoothing": 1,
+
+  // Minimum feature area (square meters)
+  // Features smaller than this will be removed
+  // Helps eliminate noise and tiny islands
+  // 0: Keep all features
+  // Typical range: 50-500
+  // Default: 100.0
+  "min_area": 100.0,
+
+  // Minimum feature width (millimeters in output scale)
+  // Features narrower than this will be removed
+  // Prevents uncut-table thin features
+  // Typical range: 1.0-5.0
+  // Default: 2.0
+  "min_feature_width_mm": 2.0,
+
+  // ============================================================================
+  // ELEVATION CONTROL
+  // ============================================================================
+
+  // Elevation threshold for special processing (meters)
+  // null: No threshold
+  // number: Elevation value for water level or base height
+  // Default: null
+  "elevation_threshold": null,
+
+  // Minimum elevation to include (meters)
+  // null: Use lowest elevation in area
+  // number: Clip to this minimum elevation
+  // Useful for focusing on high-elevation features
+  // Default: null
+  "min_elevation": null,
+
+  // Maximum elevation to include (meters)
+  // null: Use highest elevation in area
+  // number: Clip to this maximum elevation
+  // Default: null
+  "max_elevation": null,
+
+  // ============================================================================
+  // MANUFACTURING OPTIONS
+  // ============================================================================
+
+  // Generate model upside-down for easier printing
+  // true: Base layer on top (for certain 3D printing techniques)
+  // false: Normal orientation
+  // Default: false
+  "upside_down_printing": false,
+
+  // Create vertical relief on contour edges
+  // true: Add small vertical faces at contour edges
+  // false: Flat horizontal layers only
+  // Default: true
+  "vertical_contour_relief": true,
+
+  // Print resolution for raster operations (dots per inch)
+  // Higher values = more precision but slower processing
+  // Typical values: 300, 600, 1200
+  // Default: 600.0
+  "print_resolution_dpi": 600.0,
+
+  // ============================================================================
+  // REGISTRATION AND LABELING
+  // ============================================================================
+
+  // Add alignment registration marks to layers
+  // true: Include corner marks for precise layer alignment
+  // false: No registration marks
+  // Highly recommended for multi-layer models
+  // Default: true
+  "add_registration_marks": true,
+
+  // Add physical registration features (holes/pins)
+  // true: Include drillable registration holes
+  // false: Visual marks only
+  // Default: false
+  "add_physical_registration": false,
+
+  // Diameter of physical registration holes (millimeters)
+  // Used when add_physical_registration = true
+  // Common values: 1.0, 2.0, 3.0 (mm)
+  // Default: 1.0
+  "physical_registration_hole_diameter": 1.0,
+
+  // Include elevation labels on each layer
+  // true: Add text showing elevation range for each layer
+  // false: No elevation labels
+  // Default: true
+  "include_layer_numbers": true,
+
+  // Add a separate base layer
+  // true: Create an additional bottom layer for mounting
+  // false: Lowest layer is bottom
+  // Default: false
+  "add_base_layer": false,
+
+  // Visible text label for base layer
+  // Empty string: No visible label
+  // Default: ""
+  "base_label_visible": "",
+
+  // Hidden text label for base layer (embedded in file)
+  // Empty string: No hidden label
+  // Default: ""
+  "base_label_hidden": "",
+
+  // Visible text label template for layers
+  // Empty string: Auto-generate elevation label
+  // Use {layer} and {elevation} placeholders
+  // Default: ""
+  "layer_label_visible": "",
+
+  // Hidden text label template for layers (embedded in file)
+  // Empty string: No hidden label
+  // Use {layer} and {elevation} placeholders
+  // Default: ""
+  "layer_label_hidden": "",
+
+  // ============================================================================
+  // GEOGRAPHIC FEATURES (OpenStreetMap Integration)
+  // ============================================================================
+
+  // Include roads from OpenStreetMap
+  // true: Download and overlay road networks
+  // false: Terrain only
+  // Roads are styled by type (highway, primary, secondary, etc.)
+  // Default: false
+  "include_roads": false,
+
+  // Include building footprints from OpenStreetMap
+  // true: Download and include building outlines
+  // false: No buildings
+  // Default: false
+  "include_buildings": false,
+
+  // Include waterways from OpenStreetMap
+  // true: Download and include rivers, streams, lakes
+  // false: Elevation-based water only
+  // Default: false
+  "include_waterways": false,
+
+  // ============================================================================
+  // UNIT PREFERENCES
+  // ============================================================================
+  // Note: Full unit parsing system (feet/miles/DMS) coming in future version
+
+  // Unit system for labels
+  // "metric": Meters and kilometers
+  // "imperial": Feet and miles
+  // Default: "metric"
+  "label_units": "metric",
+
+  // Unit system for print dimensions
+  // "mm": Millimeters
+  // "inches": Inches
+  // Default: "mm"
+  "print_units": "mm",
+
+  // Unit system for land/elevation measurements
+  // "meters": Meters
+  // "feet": Feet
+  // Default: "meters"
+  "land_units": "meters"
+
+  // ============================================================================
+  // USAGE NOTES
+  // ============================================================================
+  //
+  // 1. COORDINATE SPECIFICATION:
+  //    - Use decimal degrees (e.g., 45.5231, not 45°31'23"N)
+  //    - Ensure upper_left_lat > lower_right_lat
+  //    - Longitude can cross dateline (e.g., 179 to -179)
+  //
+  // 2. ELEVATION DATA:
+  //    - SRTM data automatically downloaded on first use
+  //    - Data cached for future use
+  //    - Resolution: ~30m (1 arc-second) or ~90m (3 arc-second)
+  //    - Coverage: Latitudes between 60°N and 56°S
+  //
+  // 3. LAYER CALCULATION:
+  //    - If height_per_layer is null, automatically calculated as:
+  //      height_per_layer = (max_elevation - min_elevation) / num_layers
+  //    - If height_per_layer is specified, may override num_layers
+  //
+  // 4. SCALING:
+  //    - substrate_size_mm scales the larger dimension to fit
+  //    - Aspect ratio is always preserved
+  //    - All units in output files are millimeters
+  //
+  // 5. FILE FORMATS:
+  //    - SVG: Best for laser cutting, vector graphics
+  //    - STL: Best for 3D printing, binary format
+  //    - OBJ: Visualization, supports materials/colors
+  //    - PLY: Point cloud and mesh format
+  //
+  // 6. PERFORMANCE:
+  //    - Larger areas take longer to process
+  //    - More layers = more processing time
+  //    - Lower simplify_tolerance = slower but more detailed
+  //
+  // 7. QUALITY SETTINGS:
+  //    - Draft: Fast, lower detail (simplify_tolerance ~10-20)
+  //    - Medium: Balanced (simplify_tolerance ~5-10)
+  //    - High: Detailed (simplify_tolerance ~2-5)
+  //    - Ultra: Maximum detail (simplify_tolerance ~0.5-2)
+  //
+  // ============================================================================
+}

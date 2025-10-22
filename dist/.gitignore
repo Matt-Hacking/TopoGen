@@ -1,0 +1,19 @@
+# Ignore all package files but keep directory structure
+*.tar.gz
+*.tar.bz2
+*.zip
+*.dmg
+*.pkg
+*.msi
+*.deb
+*.rpm
+*.AppImage
+*.flatpak
+
+# Keep .gitkeep files and version.json manifests
+!.gitkeep
+!version.json
+!*/version.json
+
+# Keep this .gitignore file itself
+!.gitignore

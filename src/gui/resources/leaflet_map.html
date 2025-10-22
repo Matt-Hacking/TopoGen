@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Topographic Map</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <!-- QWebChannel for Qt integration -->
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        #map {
+            width: 100vw;
+            height: 100vh;
+        }
+        /* Hide Leaflet attribution to save space (we'll add it in Qt) */
+        .leaflet-control-attribution {
+            font-size: 10px;
+            background-color: rgba(255, 255, 255, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script>
+        // Initialize the map
+        var map = L.map('map', {
+            center: [63.069, -151.007],  // Default: Mount Denali
+            zoom: 10,
+            zoomControl: false,  // We'll use Qt's custom zoom controls
+            attributionControl: true,
+            zoomSnap: 0.01,      // Nearly continuous zoom (0.01 increments)
+            zoomDelta: 1.0,      // Zoom step per wheel click (larger = faster)
+            wheelPxPerZoomLevel: 8   // Wheel sensitivity (lower = more responsive, ~10x faster than 40)
+        });
+
+        // Base tile layer (OpenStreetMap) - optional overlay
+        var baseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19,
+            opacity: 0.6
+        });
+
+        // Contour lines overlay (CyclOSM - includes contours)
+        // Note: CyclOSM includes roads/labels in addition to contours
+        // For contour-only rendering, we may need a dedicated WMS service or custom rendering
+        var contourLinesLayer = L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.cyclosm.org/">CyclOSM</a> | Map data &copy; OpenStreetMap contributors',
+            maxZoom: 20,
+            subdomains: 'abc',
+            opacity: 0.6
+        });
+
+        // Topographic map layer (OpenTopoMap) - DEFAULT BASE LAYER
+        var topoMapLayer = L.tileLayer('https://tile.opentopomap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://opentopomap.org/">OpenTopoMap</a>',
+            maxZoom: 17,
+            opacity: 1.0  // Full opacity as base layer
+        }).addTo(map);
+
+        // Peak markers layer group
+        var peaksLayer = L.layerGroup().addTo(map);
+
+        // Qt bridge object (will be injected via QWebChannel)
+        var qtBridge = null;
+
+        // Initialize QWebChannel when available
+        new QWebChannel(qt.webChannelTransport, function(channel) {
+            qtBridge = channel.objects.qtBridge;
+            console.log('Qt bridge initialized');
+
+            // Emit initial bounds to Qt
+            emitBoundsChanged();
+        });
+
+        // Layer control functions callable from Qt
+        window.toggleContourLines = function(visible) {
+            console.log('toggleContourLines called with:', visible, '(type:', typeof visible, ')');
+            if (visible) {
+                console.log('Adding contour lines layer');
+                map.addLayer(contourLinesLayer);
+            } else {
+                console.log('Removing contour lines layer');
+                map.removeLayer(contourLinesLayer);
+            }
+        };
+
+        window.toggleTopoMap = function(visible) {
+            console.log('toggleTopoMap called with:', visible, '(type:', typeof visible, ')');
+            if (visible) {
+                console.log('Adding topographic map layer');
+                map.addLayer(topoMapLayer);
+            } else {
+                console.log('Removing topographic map layer');
+                map.removeLayer(topoMapLayer);
+            }
+        };
+
+        window.togglePeaks = function(visible) {
+            console.log('togglePeaks called with:', visible, '(type:', typeof visible, ')');
+            if (visible) {
+                console.log('Adding peaks layer');
+                map.addLayer(peaksLayer);
+            } else {
+                console.log('Removing peaks layer');
+                map.removeLayer(peaksLayer);
+            }
+        };
+
+        // Map navigation functions
+        window.setMapView = function(lat, lon, zoom) {
+            console.log('setMapView called:', lat, lon, zoom);
+            map.setView([lat, lon], zoom);
+        };
+
+        window.panTo = function(lat, lon) {
+            console.log('panTo called:', lat, lon);
+            map.panTo([lat, lon]);
+        };
+
+        window.setZoom = function(zoom) {
+            console.log('setZoom called:', zoom);
+            map.setZoom(zoom);
+        };
+
+        window.fitBounds = function(minLat, minLon, maxLat, maxLon) {
+            var bounds = [[minLat, minLon], [maxLat, maxLon]];
+            map.fitBounds(bounds);
+        };
+
+        // Force map to recalculate size after container resize
+        window.invalidateSize = function() {
+            console.log('invalidateSize called');
+            map.invalidateSize();
+            // Map will emit moveend event which triggers emitBoundsChanged()
+        };
+
+        // Get current map bounds (for Qt)
+        window.getBounds = function() {
+            var bounds = map.getBounds();
+            return {
+                minLat: bounds.getSouth(),
+                minLon: bounds.getWest(),
+                maxLat: bounds.getNorth(),
+                maxLon: bounds.getEast()
+            };
+        };
+
+        // Get current map center and zoom
+        window.getMapState = function() {
+            var center = map.getCenter();
+            return {
+                lat: center.lat,
+                lon: center.lng,
+                zoom: map.getZoom()
+            };
+        };
+
+        // Add peak marker (called from Qt when OSM data is loaded)
+        window.addPeakMarker = function(lat, lon, name, elevation) {
+            var marker = L.marker([lat, lon], {
+                title: name
+            }).bindPopup(`<b>${name}</b><br>Elevation: ${elevation}m`);
+            peaksLayer.addLayer(marker);
+        };
+
+        // Clear all peak markers
+        window.clearPeaks = function() {
+            peaksLayer.clearLayers();
+        };
+
+        // Emit bounds changed to Qt
+        function emitBoundsChanged() {
+            if (qtBridge && qtBridge.onBoundsChanged) {
+                var bounds = window.getBounds();
+                qtBridge.onBoundsChanged(
+                    bounds.minLat,
+                    bounds.minLon,
+                    bounds.maxLat,
+                    bounds.maxLon
+                );
+            }
+        }
+
+        // Emit map moved to Qt
+        function emitMapMoved() {
+            if (qtBridge && qtBridge.onMapMoved) {
+                var state = window.getMapState();
+                qtBridge.onMapMoved(state.lat, state.lon, state.zoom);
+            }
+        }
+
+        // Listen for map move events
+        map.on('moveend', function() {
+            emitBoundsChanged();
+            emitMapMoved();
+        });
+
+        // Listen for zoom events
+        map.on('zoomend', function() {
+            emitMapMoved();
+        });
+
+        console.log('Leaflet map initialized');
+    </script>
+</body>
+</html>

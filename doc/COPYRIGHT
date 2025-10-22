@@ -1,0 +1,105 @@
+COPYRIGHT NOTICE
+================
+
+Topographic Generator v2.0 (Version 13 - Production Release)
+Copyright (c) 2025 Matthew Block. All rights reserved.
+
+This software is licensed under the MIT License. See the LICENSE file for the full license text.
+
+THIRD-PARTY COMPONENTS:
+-----------------------
+
+This software incorporates or is derived from the following third-party components:
+
+1. laser_slicer by Boris Legradic
+   Source: https://github.com/borsic77/laser_slicer
+   License: MIT License
+   Copyright: Boris Legradic
+   Usage: Core topographic slicing and contour generation algorithms
+
+2. Bambu Slicer (libslic3r) 
+   Source: https://github.com/bambulab/BambuStudio
+   License: AGPL-3.0 License
+   Copyright: Bambu Lab
+   Usage: High-performance triangle-plane intersection algorithms for 3D mesh slicing
+
+3. libigl (Geometry Processing Library)
+   Source: https://libigl.github.io/
+   License: MPL 2.0 / GPL
+   Copyright: libigl contributors
+   Usage: Advanced mesh processing and geometric algorithms
+
+4. CGAL (Computational Geometry Algorithms Library)
+   Source: https://www.cgal.org/
+   License: GPL/LGPL (component-dependent)
+   Copyright: CGAL Project
+   Usage: Robust geometric primitives, polygon triangulation (Seidel y-monotone), and mesh processing
+
+5. Eigen3
+   Source: https://eigen.tuxfamily.org/
+   License: MPL 2.0
+   Copyright: Eigen contributors
+   Usage: Linear algebra computations
+
+6. GDAL (Geospatial Data Abstraction Library)
+   Source: https://gdal.org/
+   License: MIT/X License
+   Copyright: Frank Warmerdam and GDAL contributors
+   Usage: Geospatial data processing, contour generation, and coordinate transformations
+
+7. Intel Threading Building Blocks (TBB)
+   Source: https://www.intel.com/content/www/us/en/developer/tools/oneapi/onetbb.html
+   License: Apache License 2.0
+   Copyright: Intel Corporation
+   Usage: Parallel processing and threading
+
+8. OpenMP
+   License: Various (implementation-dependent)
+   Usage: Parallel computing directives
+
+9. nlohmann/json
+   Source: https://github.com/nlohmann/json
+   License: MIT License
+   Copyright: Niels Lohmann
+   Usage: JSON parsing for configuration files and GeoJSON export
+
+10. libcurl
+   Source: https://curl.se/libcurl/
+   License: MIT/X derivative license
+   Copyright: Daniel Stenberg and curl contributors
+   Usage: HTTP client for SRTM tile downloads and geocoding API access
+
+10. OpenStreetMap Nominatim
+    Source: https://nominatim.org/
+    License: ODbL (for data), GPL v2 (for software)
+    Copyright: OpenStreetMap contributors
+    Usage: Geocoding and reverse geocoding services
+
+11. phstl.py (Parametric Heightmap to STL)
+    Source: https://github.com/anoved/phstl
+    Author: Jim Newsom (anoved)
+    License: MIT License
+    Copyright: Jim Newsom
+    Usage: Inspiration for heightmap-to-STL triangulation algorithm in HeightmapTriangulator
+
+12. dem2stl.py (DEM to STL Converter)
+    Source: https://github.com/cvr/dem2stl
+    Author: cvr
+    License: MIT License (inferred from repository)
+    Copyright: cvr
+    Usage: Inspiration for raster elevation processing and mesh generation approach
+
+DEVELOPMENT ASSISTANCE:
+-----------------------
+
+Significant portions of this codebase were developed with assistance from Claude,
+an AI assistant created by Anthropic. This includes architectural design, 
+algorithm implementation, optimization strategies, and documentation.
+
+DISCLAIMER:
+-----------
+
+The software is provided "AS IS", without warranty of any kind. See the LICENSE
+file for complete warranty disclaimers and limitation of liability terms.
+
+For questions about licensing or copyright, contact: Matthew Block
