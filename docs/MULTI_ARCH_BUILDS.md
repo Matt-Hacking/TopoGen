@@ -5,11 +5,11 @@ Complete guide for building and packaging across multiple architectures using CI
 ## Overview
 
 The multi-architecture build system enables building distribution packages for:
-- **macOS**: Intel (x86_64) and Apple Silicon (arm64)
+- **macOS**: Apple Silicon (arm64) only
 - **Windows**: x64
 - **Linux**: x86_64 and ARM64 (aarch64)
 
-**Total**: 5 architecture combinations across 3 platforms
+**Total**: 4 architecture combinations across 3 platforms
 
 ## Quick Start
 
@@ -36,7 +36,7 @@ git push origin v0.23.0
 ```
 
 GitHub Actions automatically:
-1. Builds on 4 native architectures
+1. Builds on 3 native architectures
 2. Runs tests
 3. Creates packages
 4. Uploads to GitHub Releases
@@ -45,12 +45,12 @@ GitHub Actions automatically:
 
 | Platform | Architecture | Runner | Status |
 |----------|-------------|--------|--------|
-| macOS | Intel (x86_64) | `macos-13` | ✅ Native |
 | macOS | Apple Silicon (arm64) | `macos-14` | ✅ Native |
 | Windows | x64 | `windows-latest` | ✅ Native |
-| Windows | ARM64 | Cross-compile | ⚠️ Experimental |
 | Linux | x86_64 | `ubuntu-latest` | ✅ Native |
-| Linux | ARM64 | QEMU | ✅ Emulated |
+| Linux | ARM64 | QEMU | ✅ Emulated (releases only) |
+
+**Note**: macOS Intel (x86_64) is no longer officially supported. Users with Intel Macs can build locally if needed.
 
 ## Build Methods
 
@@ -151,7 +151,6 @@ Location: `.github/workflows/build-packages.yml`
 strategy:
   matrix:
     config:
-      - { os: macos-13, arch: x86_64, platform: macos }
       - { os: macos-14, arch: arm64, platform: macos }
       - { os: windows-latest, arch: x64, platform: windows }
       - { os: ubuntu-latest, arch: x86_64, platform: linux }
@@ -297,9 +296,6 @@ GitHub Actions automatically:
 
 ```bash
 # Build on each platform manually
-# macOS Intel
-./scripts/build-all.sh
-
 # macOS Apple Silicon
 ./scripts/build-all.sh
 

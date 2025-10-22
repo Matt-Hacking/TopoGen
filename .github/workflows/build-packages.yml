@@ -20,14 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          # macOS Intel
-          - name: macOS Intel (x86_64)
-            os: macos-13
-            arch: x86_64
-            platform: macos
-            packages: --all-macos
-
-          # macOS Apple Silicon
+          # macOS Apple Silicon (ARM64 only)
           - name: macOS Apple Silicon (arm64)
             os: macos-14
             arch: arm64
@@ -54,6 +47,79 @@ jobs:
         with:
           fetch-depth: 0  # Full history for version info
 
+      # ===== Caching Setup =====
+
+      - name: Cache Homebrew packages (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            /opt/homebrew/Cellar
+          key: ${{ runner.os }}-${{ runner.arch }}-homebrew-${{ hashFiles('.github/workflows/build-packages.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-homebrew-
+
+      - name: Setup vcpkg binary cache (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p $HOME/.vcpkg/archives
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$HOME/.vcpkg/archives" >> $GITHUB_ENV
+
+      - name: Cache vcpkg packages (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ~/.vcpkg/archives
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('.github/workflows/build-packages.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-
+
+      - name: Cache apt packages (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+            /var/lib/apt/lists
+          key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/build-packages.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+
+      - name: Cache CMake build directory (All platforms)
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: ${{ runner.os }}-${{ matrix.config.arch }}-build-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.config.arch }}-build-${{ github.ref }}-
+            ${{ runner.os }}-${{ matrix.config.arch }}-build-
+
+      - name: Setup ccache (Linux/macOS)
+        if: runner.os != 'Windows'
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}-${{ matrix.config.arch }}-ccache
+          max-size: 2G
+
+      - name: Setup sccache (Windows)
+        if: runner.os == 'Windows'
+        uses: mozilla-actions/sccache-action@v0.0.4
+
+      - name: Configure compiler cache variables
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            echo "CMAKE_C_COMPILER_LAUNCHER=sccache" >> $GITHUB_ENV
+            echo "CMAKE_CXX_COMPILER_LAUNCHER=sccache" >> $GITHUB_ENV
+          else
+            echo "CMAKE_C_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
+            echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
+          fi
+
+      # ===== Dependency Installation =====
+
       - name: Set up dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -79,6 +145,7 @@ jobs:
             libeigen3-dev \
             libtbb-dev \
             libomp-dev \
+            libfreetype6-dev \
             qt6-base-dev \
             dpkg-dev \
             rpm \
@@ -89,10 +156,23 @@ jobs:
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install \
+            -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }} \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }}
 
       - name: Build
         run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+
+      - name: Show compiler cache statistics
+        if: always()
+        shell: bash
+        run: |
+          echo "=== Compiler Cache Statistics ==="
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            sccache --show-stats || echo "sccache stats not available"
+          else
+            ccache --show-stats || echo "ccache stats not available"
+          fi
 
       - name: Run basic tests
         run: |
@@ -245,7 +325,7 @@ jobs:
 
           ## Supported Architectures
 
-          - macOS: Intel (x86_64), Apple Silicon (arm64)
+          - macOS: Apple Silicon (arm64) only
           - Windows: x64
           - Linux: x86_64
 
@@ -297,7 +377,7 @@ jobs:
             -w /workspace \
             ubuntu:22.04 bash -c '
               apt-get update && \
-              apt-get install -y cmake build-essential libgdal-dev libcgal-dev libeigen3-dev libtbb-dev && \
+              apt-get install -y cmake build-essential libgdal-dev libcgal-dev libeigen3-dev libtbb-dev libfreetype6-dev && \
               cmake -B build -DCMAKE_BUILD_TYPE=Release && \
               cmake --build build --parallel
             '
