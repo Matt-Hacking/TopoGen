@@ -1,0 +1,37 @@
+{
+  "name": "Topographic Generator",
+  "version": "0.22.001",
+  "build": {
+    "date": "2025-10-22T08:14:54Z",
+    "commit": "73875c5",
+    "tag": "0.22.01",
+    "platform": "macos",
+    "architecture": "arm64",
+    "type": "Release"
+  },
+  "executables": {
+    "cli": "topo-gen",
+    "gui": "topo-gen-gui"
+  },
+  "dependencies": {
+    "cgal": "unknown",
+    "gdal": "3.11.4",
+    "eigen": "unknown",
+    "tbb": "unknown",
+    "qt": "unknown",
+    "openmp": "unknown"
+  },
+  "checksums": {
+    "sha256": "a12f8428353563d2a97a8ac714d0b9752eab90ec978f8ea890a4471fa37a8344",
+    "md5": "b2c02f6a819d1d0115c338146b14a40c"
+  },
+  "package": {
+    "format": "source-tarball",
+    "filename": "topo-gen-0.22.001-source-20251022_001454.tar.gz",
+    "size_bytes": "1493010"
+  },
+  "license": "MIT",
+  "copyright": "Copyright (c) 2025 Matthew Block",
+  "homepage": "https://github.com/matthewblock/topo-gen",
+  "documentation": "https://github.com/matthewblock/topo-gen/blob/main/README.md"
+}

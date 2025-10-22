@@ -186,8 +186,12 @@ Usage: $0 [OPTIONS]
 Package Format Options:
     --source            Create source tarball (git archive)
     --binary            Create binary package for current platform
+    --dmg               Create macOS DMG installer (macOS only)
+    --pkg               Create macOS PKG installer (macOS only)
+    --homebrew          Generate Homebrew formula
     --platform PLATFORM Target platform: macos, linux, windows, source
     --all               Create all packages (source + binary for current platform)
+    --all-macos         Create all macOS packages (binary, DMG, PKG, Homebrew)
 
 Build Options:
     --clean-build       Clean and rebuild before packaging
@@ -213,7 +217,19 @@ Examples:
     # Build everything
     $0 --all --clean-build
 
-    # Create macOS package
+    # Create macOS DMG installer
+    $0 --dmg
+
+    # Create macOS PKG installer
+    $0 --pkg
+
+    # Generate Homebrew formula
+    $0 --homebrew
+
+    # Create all macOS packages
+    $0 --all-macos --clean-build
+
+    # Create specific platform package
     $0 --platform macos --binary --bundle-deps
 
 Environment Variables:
@@ -226,6 +242,9 @@ EOF
 # Default options
 CREATE_SOURCE=false
 CREATE_BINARY=false
+CREATE_DMG=false
+CREATE_PKG=false
+CREATE_HOMEBREW=false
 CLEAN_BUILD=false
 BUNDLE_DEPS=true
 OUTPUT_DIR="$PROJECT_ROOT/dist"
@@ -242,6 +261,18 @@ while [[ $# -gt 0 ]]; do
             CREATE_BINARY=true
             shift
             ;;
+        --dmg)
+            CREATE_DMG=true
+            shift
+            ;;
+        --pkg)
+            CREATE_PKG=true
+            shift
+            ;;
+        --homebrew)
+            CREATE_HOMEBREW=true
+            shift
+            ;;
         --platform)
             TARGET_PLATFORM="$2"
             shift 2
@@ -249,6 +280,14 @@ while [[ $# -gt 0 ]]; do
         --all)
             CREATE_SOURCE=true
             CREATE_BINARY=true
+            shift
+            ;;
+        --all-macos)
+            CREATE_SOURCE=true
+            CREATE_BINARY=true
+            CREATE_DMG=true
+            CREATE_PKG=true
+            CREATE_HOMEBREW=true
             shift
             ;;
         --clean-build)
@@ -479,6 +518,107 @@ if [[ "$CREATE_BINARY" == true ]]; then
     log_success "Binary package: $(basename "$PACKAGE_FILE") ($SIZE)"
 fi
 
+# Create DMG (macOS only)
+if [[ "$CREATE_DMG" == true ]]; then
+    if [[ "$TARGET_PLATFORM" != "macos" ]]; then
+        log_warning "DMG creation only supported on macOS, skipping"
+    elif [[ ! -d "build/topo-gen-gui.app" ]]; then
+        log_warning "GUI app bundle not found, skipping DMG creation"
+        log_info "Build GUI first: cmake --build build --target topo-gen-gui"
+    else
+        log_info "Creating DMG installer..."
+
+        DMG_SCRIPT="$SCRIPT_DIR/package/create-dmg.sh"
+        if [[ -x "$DMG_SCRIPT" ]]; then
+            "$DMG_SCRIPT" \
+                --output-dir "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}" \
+                build/topo-gen-gui.app
+            log_success "DMG created"
+        else
+            log_error "DMG script not found or not executable: $DMG_SCRIPT"
+        fi
+    fi
+fi
+
+# Create PKG (macOS only)
+if [[ "$CREATE_PKG" == true ]]; then
+    if [[ "$TARGET_PLATFORM" != "macos" ]]; then
+        log_warning "PKG creation only supported on macOS, skipping"
+    elif [[ ! -f "build/topo-gen" ]]; then
+        log_warning "CLI executable not found, skipping PKG creation"
+        log_info "Build first: cmake --build build"
+    else
+        log_info "Creating PKG installer..."
+
+        PKG_SCRIPT="$SCRIPT_DIR/package/create-pkg.sh"
+        if [[ -x "$PKG_SCRIPT" ]]; then
+            PKG_CMD=("$PKG_SCRIPT" \
+                --cli build/topo-gen \
+                --output-dir "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}" \
+                --version "$VERSION")
+
+            # Add GUI if available
+            if [[ -d "build/topo-gen-gui.app" ]]; then
+                PKG_CMD+=(--gui build/topo-gen-gui.app)
+            else
+                PKG_CMD+=(--no-gui)
+            fi
+
+            "${PKG_CMD[@]}"
+            log_success "PKG created"
+        else
+            log_error "PKG script not found or not executable: $PKG_SCRIPT"
+        fi
+    fi
+fi
+
+# Create Homebrew formula
+if [[ "$CREATE_HOMEBREW" == true ]]; then
+    log_info "Generating Homebrew formula..."
+
+    HOMEBREW_SCRIPT="$SCRIPT_DIR/package/create-homebrew.sh"
+
+    # Check if source tarball exists
+    SOURCE_TARBALL=$(ls -t "$OUTPUT_DIR/source"/topo-gen-${VERSION}-source-*.tar.gz 2>/dev/null | head -1)
+
+    if [[ -z "$SOURCE_TARBALL" ]]; then
+        log_warning "Source tarball not found, creating one first..."
+        # Create source package if not already done
+        TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+        SOURCE_TARBALL_NAME="topo-gen-${VERSION}-source-${TIMESTAMP}.tar.gz"
+        SOURCE_TARBALL="$OUTPUT_DIR/source/$SOURCE_TARBALL_NAME"
+
+        mkdir -p "$OUTPUT_DIR/source"
+
+        if command -v git &> /dev/null && [[ -d ".git" ]]; then
+            git archive --format=tar.gz --prefix="topo-gen-${VERSION}/" HEAD > "$SOURCE_TARBALL"
+            log_success "Created source tarball for Homebrew"
+        else
+            log_error "Git not available, cannot create source tarball"
+            log_info "Create source tarball first: $0 --source"
+            CREATE_HOMEBREW=false
+        fi
+    fi
+
+    if [[ "$CREATE_HOMEBREW" == true && -f "$SOURCE_TARBALL" ]]; then
+        # For Homebrew, we need a public URL
+        # Generate formula with placeholder URL that user must update
+        TARBALL_URL="https://github.com/matthewblock/topo-gen/archive/v${VERSION}.tar.gz"
+
+        if [[ -x "$HOMEBREW_SCRIPT" ]]; then
+            "$HOMEBREW_SCRIPT" \
+                --tarball "$TARBALL_URL" \
+                --version "$VERSION" \
+                --output-dir "$OUTPUT_DIR/homebrew"
+
+            log_success "Homebrew formula created"
+            log_warning "Update the URL in the formula to point to your actual release"
+        else
+            log_error "Homebrew script not found or not executable: $HOMEBREW_SCRIPT"
+        fi
+    fi
+fi
+
 echo ""
 log_success "Deployment completed successfully!"
 log_info "Output directory: $OUTPUT_DIR"
@@ -495,13 +635,48 @@ if [[ "$CREATE_BINARY" == true ]]; then
     ls -lh "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"/*.{tar.gz,zip} 2>/dev/null | tail -1 | awk '{print "  " $9, "(" $5 ")"}'
 fi
 
-echo ""
-log_info "To extract and test:"
-if [[ "$TARGET_PLATFORM" == "windows" ]]; then
-    echo "  unzip topo-gen-*.zip"
-else
-    echo "  tar -xzf topo-gen-*.tar.gz"
+if [[ "$CREATE_DMG" == true && -d "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}" ]]; then
+    echo "DMG installer:"
+    ls -lh "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"/*.dmg 2>/dev/null | tail -1 | awk '{print "  " $9, "(" $5 ")"}'
 fi
-echo "  cd topo-gen-*/"
-echo "  ./bin/topo-gen --help"
+
+if [[ "$CREATE_PKG" == true && -d "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}" ]]; then
+    echo "PKG installer:"
+    ls -lh "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"/*.pkg 2>/dev/null | tail -1 | awk '{print "  " $9, "(" $5 ")"}'
+fi
+
+if [[ "$CREATE_HOMEBREW" == true && -d "$OUTPUT_DIR/homebrew" ]]; then
+    echo "Homebrew formula:"
+    ls -lh "$OUTPUT_DIR/homebrew"/*.rb 2>/dev/null | tail -1 | awk '{print "  " $9, "(" $5 ")"}'
+fi
+
+echo ""
+log_info "To test packages:"
+
+if [[ "$CREATE_BINARY" == true ]]; then
+    echo "  Binary:"
+    if [[ "$TARGET_PLATFORM" == "windows" ]]; then
+        echo "    unzip topo-gen-*.zip && cd topo-gen-*/ && ./bin/topo-gen.exe --help"
+    else
+        echo "    tar -xzf topo-gen-*.tar.gz && cd topo-gen-*/ && ./bin/topo-gen --help"
+    fi
+fi
+
+if [[ "$CREATE_DMG" == true ]]; then
+    echo "  DMG:"
+    echo "    open dist/${TARGET_PLATFORM}-${ARCHITECTURE}/*.dmg"
+    echo "    Drag app to Applications, then launch"
+fi
+
+if [[ "$CREATE_PKG" == true ]]; then
+    echo "  PKG:"
+    echo "    open dist/${TARGET_PLATFORM}-${ARCHITECTURE}/*.pkg"
+    echo "    Follow installer prompts, then run: topo-gen --help"
+fi
+
+if [[ "$CREATE_HOMEBREW" == true ]]; then
+    echo "  Homebrew:"
+    echo "    brew install --build-from-source dist/homebrew/topo-gen.rb"
+fi
+
 echo ""
