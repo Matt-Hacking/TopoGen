@@ -9,6 +9,8 @@
 #include <sstream>
 #include <algorithm>
 #include <iomanip>
+#include <vector>
+#include <utility>
 #include <curl/curl.h>
 #include <openssl/evp.h>
 
