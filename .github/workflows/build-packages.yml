@@ -154,7 +154,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-          vcpkg install gdal cgal eigen3 tbb
+          vcpkg install --triplet x64-windows --manifest-root .github
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
 
       - name: Set up dependencies (Linux)
