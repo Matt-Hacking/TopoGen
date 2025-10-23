@@ -61,6 +61,16 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-homebrew-v2-
             ${{ runner.os }}-${{ runner.arch }}-homebrew-
 
+      - name: Cache Chocolatey packages (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: C:\ProgramData\chocolatey
+          key: ${{ runner.os }}-choco-v1-${{ hashFiles('.github/workflows/build-packages.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-choco-v1-
+            ${{ runner.os }}-choco-
+
       - name: Setup vcpkg binary cache with GitHub Packages (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -82,7 +92,7 @@ jobs:
           # Remove existing GitHubPackages source if present (ignore errors)
           & "$nugetPath" sources remove -name "GitHubPackages" 2>$null
 
-          # Add GitHub Packages as NuGet source with authentication
+          # Add GitHub Packages as NuGet source with authentication (for READ)
           & "$nugetPath" sources add `
             -source $feedUrl `
             -storepasswordincleartext `
@@ -90,17 +100,30 @@ jobs:
             -username "${{ github.actor }}" `
             -password "${{ secrets.GITHUB_TOKEN }}"
 
-          Write-Host "✓ vcpkg binary caching configured with GitHub Packages"
+          # Set API key for NuGet push operations (for WRITE)
+          & "$nugetPath" setapikey "${{ secrets.GITHUB_TOKEN }}" -Source $feedUrl
 
-      - name: Cache vcpkg packages (Windows)
+          Write-Host "✓ vcpkg binary caching configured with GitHub Packages (read+write)"
+
+      - name: Cache vcpkg binary packages (Windows)
         if: runner.os == 'Windows'
         uses: actions/cache@v4
         with:
           path: C:\Users\runneradmin\AppData\Local\vcpkg\archives
-          key: ${{ runner.os }}-vcpkg-v2-${{ hashFiles('vcpkg.json', 'CMakeLists.txt') }}
+          key: ${{ runner.os }}-vcpkg-binary-v2-${{ hashFiles('vcpkg.json', 'CMakeLists.txt') }}
           restore-keys: |
+            ${{ runner.os }}-vcpkg-binary-v2-
             ${{ runner.os }}-vcpkg-v2-
             ${{ runner.os }}-vcpkg-v1-
+
+      - name: Cache vcpkg downloads (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: C:\Users\runneradmin\AppData\Local\vcpkg\downloads
+          key: ${{ runner.os }}-vcpkg-downloads-v1-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-downloads-v1-
 
       - name: Cache apt packages (Linux)
         if: runner.os == 'Linux'
