@@ -92,9 +92,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build
-          key: ${{ runner.os }}-${{ matrix.config.arch }}-build-${{ github.sha }}
+          key: ${{ runner.os }}-${{ matrix.config.arch }}-build-${{ hashFiles('**/CMakeLists.txt', '**/*.cpp', '**/*.hpp') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.config.arch }}-build-${{ github.ref }}-
             ${{ runner.os }}-${{ matrix.config.arch }}-build-
 
       - name: Setup ccache (Linux/macOS)
@@ -124,8 +123,14 @@ jobs:
       - name: Set up dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew update
-          brew install cmake gdal cgal eigen tbb libomp qt@6
+          # Check if key dependencies are already installed (from cache)
+          if ! brew list gdal &>/dev/null || ! brew list cgal &>/dev/null; then
+            echo "Installing missing dependencies..."
+            brew update
+            brew install cmake gdal cgal eigen tbb libomp qt@6
+          else
+            echo "✓ Dependencies already cached and installed"
+          fi
 
       - name: Set up dependencies (Windows)
         if: runner.os == 'Windows'
@@ -137,21 +142,27 @@ jobs:
       - name: Set up dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake \
-            build-essential \
-            libgdal-dev \
-            libcgal-dev \
-            libeigen3-dev \
-            libtbb-dev \
-            libomp-dev \
-            libfreetype6-dev \
-            qt6-base-dev \
-            dpkg-dev \
-            rpm \
-            flatpak-builder \
-            libfuse2
+          # Check if key dependencies are already installed (from cache)
+          if ! dpkg -l | grep -q libgdal-dev || ! dpkg -l | grep -q libcgal-dev; then
+            echo "Installing missing dependencies..."
+            sudo apt-get update
+            sudo apt-get install -y \
+              cmake \
+              build-essential \
+              libgdal-dev \
+              libcgal-dev \
+              libeigen3-dev \
+              libtbb-dev \
+              libomp-dev \
+              libfreetype6-dev \
+              qt6-base-dev \
+              dpkg-dev \
+              rpm \
+              flatpak-builder \
+              libfuse2
+          else
+            echo "✓ Dependencies already cached and installed"
+          fi
 
       - name: Configure CMake
         run: |
