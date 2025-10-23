@@ -14,7 +14,7 @@ namespace topo {
 
 ExportOrchestrator::ExportOrchestrator(const TopographicGenerator& generator)
     : generator_(generator)
-    , logger_("ExportOrchestrator", generator.get_config().log_level)
+    , logger_("ExportOrchestrator")
 {
     logger_.info("Export orchestrator initialized");
 }
