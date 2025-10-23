@@ -1,0 +1,45 @@
+{
+  "name": "topographic-generator",
+  "version": "0.22.3",
+  "description": "High-performance topographic model generator with laser-cutting optimization",
+  "homepage": "https://github.com/your-username/topographic-generator",
+  "license": "MIT",
+  "dependencies": [
+    {
+      "name": "gdal",
+      "default-features": false,
+      "features": [
+        "png"
+      ]
+    },
+    {
+      "name": "cgal",
+      "default-features": false,
+      "features": [
+        "core"
+      ]
+    },
+    "eigen3",
+    "tbb",
+    "freetype",
+    "curl",
+    "openssl",
+    "zlib",
+    "gmp",
+    "mpfr",
+    {
+      "name": "qt",
+      "default-features": false,
+      "features": [
+        "core",
+        "widgets",
+        "svg",
+        "network",
+        "printsupport",
+        "webengine",
+        "webchannel"
+      ]
+    }
+  ],
+  "builtin-baseline": "2025.02.14"
+}

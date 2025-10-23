@@ -16,6 +16,8 @@ jobs:
   build:
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
+    permissions:
+      packages: write  # Enable GitHub Packages for vcpkg binary caching
     strategy:
       fail-fast: false
       matrix:
@@ -59,24 +61,40 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-homebrew-v2-
             ${{ runner.os }}-${{ runner.arch }}-homebrew-
 
-      - name: Setup vcpkg binary cache (Windows)
+      - name: Setup vcpkg binary cache with GitHub Packages (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $cacheDir = "$env:LOCALAPPDATA\vcpkg\archives"
-          New-Item -ItemType Directory -Force -Path $cacheDir
-          echo "VCPKG_DEFAULT_BINARY_CACHE=$cacheDir" >> $env:GITHUB_ENV
-          echo "VCPKG_BINARY_SOURCES=clear;x-gha,readwrite" >> $env:GITHUB_ENV
+          # Use GitHub Packages (NuGet) for vcpkg binary caching
+          $owner = "${{ github.repository_owner }}"
+          $feedUrl = "https://nuget.pkg.github.com/$owner/index.json"
+          echo "VCPKG_BINARY_SOURCES=clear;nuget,$feedUrl,readwrite" >> $env:GITHUB_ENV
+
+          # Configure NuGet authentication with GitHub token
+          $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+          & "$vcpkgRoot\vcpkg.exe" fetch nuget | Out-Null
+          $nugetPath = & "$vcpkgRoot\vcpkg.exe" fetch nuget | Select-Object -Last 1
+
+          # Add GitHub Packages as NuGet source with authentication
+          & $nugetPath sources add `
+            -source $feedUrl `
+            -storepasswordincleartext `
+            -name "GitHubPackages" `
+            -username "${{ github.actor }}" `
+            -password "${{ secrets.GITHUB_TOKEN }}" `
+            -configfile "$vcpkgRoot\NuGet.Config" 2>$null
+
+          echo "✓ vcpkg binary caching configured with GitHub Packages"
 
       - name: Cache vcpkg packages (Windows)
         if: runner.os == 'Windows'
         uses: actions/cache@v4
         with:
           path: C:\Users\runneradmin\AppData\Local\vcpkg\archives
-          key: ${{ runner.os }}-vcpkg-v1-${{ hashFiles('CMakeLists.txt') }}
+          key: ${{ runner.os }}-vcpkg-v2-${{ hashFiles('vcpkg.json', 'CMakeLists.txt') }}
           restore-keys: |
+            ${{ runner.os }}-vcpkg-v2-
             ${{ runner.os }}-vcpkg-v1-
-            ${{ runner.os }}-vcpkg-
 
       - name: Cache apt packages (Linux)
         if: runner.os == 'Linux'
@@ -153,10 +171,16 @@ jobs:
 
       - name: Set up dependencies (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-          vcpkg install gdal[png,openssl,curl]:x64-windows cgal:x64-windows eigen3:x64-windows tbb:x64-windows
+
+          # Use manifest mode with vcpkg.json for minimal dependencies
+          echo "Installing dependencies from vcpkg.json manifest..."
+          vcpkg install --triplet x64-windows --x-manifest-root=${{ github.workspace }}
+
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
+          echo "✓ Dependencies installed with minimal features"
 
       - name: Set up dependencies (Linux)
         if: runner.os == 'Linux'
