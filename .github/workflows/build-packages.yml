@@ -53,12 +53,10 @@ jobs:
         if: runner.os == 'macOS'
         uses: actions/cache@v4
         with:
-          path: |
-            ~/Library/Caches/Homebrew
-            /opt/homebrew/Cellar
-          key: ${{ runner.os }}-${{ runner.arch }}-homebrew-v1-${{ hashFiles('CMakeLists.txt') }}
+          path: ~/Library/Caches/Homebrew
+          key: ${{ runner.os }}-${{ runner.arch }}-homebrew-v2-${{ hashFiles('CMakeLists.txt') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-homebrew-v1-
+            ${{ runner.os }}-${{ runner.arch }}-homebrew-v2-
             ${{ runner.os }}-${{ runner.arch }}-homebrew-
 
       - name: Setup vcpkg binary cache (Windows)
@@ -100,7 +98,7 @@ jobs:
       - name: Install ccache (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install ccache
+          brew install ccache || brew reinstall ccache
           brew link ccache --overwrite --force
 
       - name: Install ccache (Linux)
@@ -138,14 +136,8 @@ jobs:
       - name: Set up dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          # Check if key dependencies are already installed (from cache)
-          if ! brew list gdal &>/dev/null || ! brew list cgal &>/dev/null; then
-            echo "Installing missing dependencies..."
-            brew update
-            brew install cmake gdal cgal eigen tbb libomp qt@6
-          else
-            echo "✓ Dependencies already cached and installed"
-          fi
+          brew update
+          brew install cmake gdal cgal eigen tbb libomp qt@6
 
       - name: Set up dependencies (Windows)
         if: runner.os == 'Windows'
