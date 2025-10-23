@@ -75,8 +75,8 @@ option(ENABLE_TESTING "Enable unit tests" OFF)
 option(BUILD_BENCHMARKS "Build performance benchmarks" OFF)
 option(BUILD_GUI "Build Qt GUI application" ON)
 
-# Find required libraries
-find_package(PkgConfig REQUIRED)
+# Find optional libraries (not needed on Windows with vcpkg)
+find_package(PkgConfig QUIET)
 
 # CGAL completely removed - using custom geometry types and GDAL/OGR for all geometry operations
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
