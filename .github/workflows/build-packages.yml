@@ -165,6 +165,7 @@ jobs:
           fi
 
       - name: Configure CMake
+        shell: bash
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
@@ -173,6 +174,7 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }}
 
       - name: Build
+        shell: bash
         run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
 
       - name: Show compiler cache statistics
@@ -202,15 +204,17 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           ./packaging/windows/bundle_deps.sh \
-            --executable build/Release/topo-gen.exe \
-            --output dist/windows-deps
+            --cli \
+            --output-dir dist/windows-deps \
+            build/Release/topo-gen.exe
 
       - name: Bundle dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           ./packaging/linux/bundle_deps.sh \
-            --executable build/topo-gen \
-            --output dist/linux-deps
+            --cli \
+            --output-dir dist/linux-deps \
+            build/topo-gen
 
       - name: Create packages
         run: |

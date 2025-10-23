@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Topographic Generator
+GenericName=Topographic Model Generator
+Comment=Generate laser-cuttable topographic models from elevation data
+Exec=topo-gen-gui %F
+Icon=topo-gen-gui
+Terminal=false
+Categories=Graphics;Science;Geology;Engineering;
+Keywords=topographic;contour;elevation;laser;cutting;3D;printing;STL;SVG;
+MimeType=application/x-topographic-config;
+StartupNotify=true
+StartupWMClass=topo-gen-gui

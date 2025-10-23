@@ -1,0 +1,37 @@
+// Windows Resource File for Topographic Generator GUI
+// Copyright (c) 2025 Matthew Block
+
+#include <windows.h>
+
+// Icon
+IDI_ICON1 ICON "icons/app_icon.ico"
+
+// Version Information
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION    0,22,2,0
+PRODUCTVERSION 0,22,2,0
+FILEFLAGSMASK  VS_FFI_FILEFLAGSMASK
+FILEFLAGS      0x0L
+FILEOS         VOS__WINDOWS32
+FILETYPE       VFT_APP
+FILESUBTYPE    VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"  // US English, Unicode
+        BEGIN
+            VALUE "CompanyName",      "Matthew Block"
+            VALUE "FileDescription",  "Topographic Model Generator"
+            VALUE "FileVersion",      "0.22.002"
+            VALUE "InternalName",     "topo-gen-gui"
+            VALUE "LegalCopyright",   "Copyright (c) 2025 Matthew Block. MIT License."
+            VALUE "OriginalFilename", "topo-gen-gui.exe"
+            VALUE "ProductName",      "Topographic Generator"
+            VALUE "ProductVersion",   "0.22.002"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200  // US English, Unicode
+    END
+END
