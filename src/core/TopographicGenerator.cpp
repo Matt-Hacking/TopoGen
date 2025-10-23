@@ -1272,13 +1272,17 @@ public:
         }
         return *mesh_;
     }
-    
+
+    const std::vector<ContourLayer>& get_contour_layers() const {
+        return contour_layers_;
+    }
+
     const TopographicConfig& get_config() const { return config_; }
-    void update_config(const TopographicConfig& config) { 
+    void update_config(const TopographicConfig& config) {
         config_ = config;
         configure_components();
     }
-    
+
     const PerformanceMetrics& get_metrics() const { return metrics_; }
     const MeshValidationResult& get_validation_result() const { return validation_result_; }
     const OutputTracker& get_output_tracker() const { return output_tracker_; }
@@ -2255,6 +2259,10 @@ bool TopographicGenerator::export_models() {
 
 const TopographicMesh& TopographicGenerator::get_mesh() const {
     return impl_->get_mesh();
+}
+
+const std::vector<ContourLayer>& TopographicGenerator::get_contour_layers() const {
+    return impl_->get_contour_layers();
 }
 
 const PerformanceMetrics& TopographicGenerator::get_metrics() const {

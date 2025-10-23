@@ -184,8 +184,8 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           ./packaging/macos/bundle_deps.sh \
-            --executable build/topo-gen \
-            --output dist/macos-deps
+            --cli build/topo-gen \
+            --output-dir dist/macos-deps
 
       - name: Bundle dependencies (Windows)
         if: runner.os == 'Windows'

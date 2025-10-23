@@ -3,6 +3,7 @@
 add_library(TopoCLI STATIC
     CommandLineInterface.cpp
     ConfigurationManager.cpp
+    ExportOrchestrator.cpp
     SimpleCommandLineParser.hpp
 )
 

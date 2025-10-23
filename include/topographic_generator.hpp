@@ -22,6 +22,7 @@
 // Forward declarations
 namespace topo {
     class OutputTracker;
+    struct ContourLayer;
 }
 
 // Linear algebra
@@ -457,6 +458,7 @@ public:
     
     // Accessors
     const TopographicMesh& get_mesh() const;
+    const std::vector<ContourLayer>& get_contour_layers() const;
     const PerformanceMetrics& get_metrics() const;
     const MeshValidationResult& get_validation_result() const;
     const OutputTracker& get_output_tracker() const;
