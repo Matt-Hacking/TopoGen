@@ -112,7 +112,15 @@ if(APPLE)
         MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
         MACOSX_BUNDLE_INFO_STRING "High-performance topographic model generator"
         MACOSX_BUNDLE_COPYRIGHT "Copyright © 2025 Matthew Block. MIT License."
+        MACOSX_BUNDLE_ICON_FILE app_icon.icns
     )
+
+    # Add icon to bundle resources
+    set(MACOS_ICON_FILE ${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/app_icon.icns)
+    set_source_files_properties(${MACOS_ICON_FILE} PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources"
+    )
+    target_sources(topo-gen-gui PRIVATE ${MACOS_ICON_FILE})
 
     # macOS: Remove extended attributes and code sign app bundle after build
     # This prevents "Code Signature Invalid" errors when building on network volumes
@@ -135,6 +143,14 @@ if(WIN32)
     set_target_properties(topo-gen-gui PROPERTIES
         WIN32_EXECUTABLE TRUE
     )
+
+    # Configure and add Windows resource file with icon
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/resources/app.rc.in
+        ${CMAKE_CURRENT_BINARY_DIR}/app.rc
+        @ONLY
+    )
+    target_sources(topo-gen-gui PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/app.rc)
 endif()
 
 # Installation
@@ -142,5 +158,23 @@ install(TARGETS topo-gen-gui
     BUNDLE DESTINATION . COMPONENT Runtime
     RUNTIME DESTINATION bin COMPONENT Runtime
 )
+
+# Linux desktop integration
+if(UNIX AND NOT APPLE)
+    # Install desktop file
+    install(FILES resources/topo-gen-gui.desktop
+        DESTINATION share/applications)
+
+    # Install scalable SVG icon
+    install(FILES resources/icons/app_icon.svg
+        DESTINATION share/icons/hicolor/scalable/apps
+        RENAME topo-gen-gui.svg)
+
+    # Install PNG icons at various sizes
+    foreach(size 16 32 48 64 128 256 512)
+        install(FILES resources/icons/hicolor/${size}x${size}/apps/topo-gen-gui.png
+            DESTINATION share/icons/hicolor/${size}x${size}/apps/)
+    endforeach()
+endif()
 
 message(STATUS "Configured GUI application: topo-gen-gui")

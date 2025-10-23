@@ -1,5 +1,8 @@
 <RCC>
     <qresource prefix="/">
         <file>leaflet_map.html</file>
+        <file>icons/app_icon.svg</file>
+        <file>icons/app_icon.icns</file>
+        <file>icons/app_icon.ico</file>
     </qresource>
 </RCC>

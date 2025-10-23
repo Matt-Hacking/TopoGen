@@ -186,3 +186,4 @@ Thumbs.db
 !packaging/**/*.yml
 !packaging/**/*.sh
 !packaging/**/*.md
+.venv/
