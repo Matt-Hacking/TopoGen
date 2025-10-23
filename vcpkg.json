@@ -14,10 +14,7 @@
     },
     {
       "name": "cgal",
-      "default-features": false,
-      "features": [
-        "core"
-      ]
+      "default-features": false
     },
     "eigen3",
     "tbb",
@@ -31,7 +28,6 @@
       "name": "qt",
       "default-features": false,
       "features": [
-        "core",
         "widgets",
         "svg",
         "network",
