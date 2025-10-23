@@ -81,11 +81,22 @@ jobs:
         if: runner.os == 'Linux'
         uses: actions/cache@v4
         with:
-          path: /var/cache/apt/archives
-          key: ${{ runner.os }}-apt-v1-${{ hashFiles('CMakeLists.txt') }}
+          path: ~/apt-cache
+          key: ${{ runner.os }}-apt-v2-${{ hashFiles('CMakeLists.txt') }}
           restore-keys: |
-            ${{ runner.os }}-apt-v1-
+            ${{ runner.os }}-apt-v2-
             ${{ runner.os }}-apt-
+
+      - name: Restore apt cache to system (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p ~/apt-cache
+          if [ -d ~/apt-cache ] && [ "$(ls -A ~/apt-cache/*.deb 2>/dev/null)" ]; then
+            echo "Restoring $(ls ~/apt-cache/*.deb 2>/dev/null | wc -l) cached .deb files to system"
+            sudo cp ~/apt-cache/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+          else
+            echo "No cached .deb files to restore"
+          fi
 
       - name: Cache CMake build directory (All platforms)
         uses: actions/cache@v4
@@ -169,6 +180,15 @@ jobs:
               libfuse2
           else
             echo "✓ Dependencies already cached and installed"
+          fi
+
+      - name: Save apt packages to cache (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p ~/apt-cache
+          if [ -f /var/cache/apt/archives/*.deb ]; then
+            echo "Saving $(ls /var/cache/apt/archives/*.deb 2>/dev/null | wc -l) .deb files to cache"
+            cp /var/cache/apt/archives/*.deb ~/apt-cache/ 2>/dev/null || true
           fi
 
       - name: Configure CMake
