@@ -56,8 +56,9 @@ jobs:
           path: |
             ~/Library/Caches/Homebrew
             /opt/homebrew/Cellar
-          key: ${{ runner.os }}-${{ runner.arch }}-homebrew-${{ hashFiles('.github/workflows/build-packages.yml') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-homebrew-v1-${{ hashFiles('CMakeLists.txt') }}
           restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-homebrew-v1-
             ${{ runner.os }}-${{ runner.arch }}-homebrew-
 
       - name: Setup vcpkg binary cache (Windows)
@@ -73,19 +74,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: C:\Users\runneradmin\AppData\Local\vcpkg\archives
-          key: ${{ runner.os }}-vcpkg-${{ hashFiles('.github/workflows/build-packages.yml') }}
+          key: ${{ runner.os }}-vcpkg-v1-${{ hashFiles('CMakeLists.txt') }}
           restore-keys: |
+            ${{ runner.os }}-vcpkg-v1-
             ${{ runner.os }}-vcpkg-
 
       - name: Cache apt packages (Linux)
         if: runner.os == 'Linux'
         uses: actions/cache@v4
         with:
-          path: |
-            /var/cache/apt/archives
-            /var/lib/apt/lists
-          key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/build-packages.yml') }}
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-v1-${{ hashFiles('CMakeLists.txt') }}
           restore-keys: |
+            ${{ runner.os }}-apt-v1-
             ${{ runner.os }}-apt-
 
       - name: Cache CMake build directory (All platforms)
@@ -98,7 +99,9 @@ jobs:
 
       - name: Install ccache (macOS)
         if: runner.os == 'macOS'
-        run: brew install ccache
+        run: |
+          brew install ccache
+          brew link ccache --overwrite --force
 
       - name: Install ccache (Linux)
         if: runner.os == 'Linux'
