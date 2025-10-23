@@ -79,14 +79,16 @@ jobs:
 
           Write-Host "NuGet path: $nugetPath"
 
+          # Remove existing GitHubPackages source if present (ignore errors)
+          & "$nugetPath" sources remove -name "GitHubPackages" 2>$null
+
           # Add GitHub Packages as NuGet source with authentication
           & "$nugetPath" sources add `
             -source $feedUrl `
             -storepasswordincleartext `
             -name "GitHubPackages" `
             -username "${{ github.actor }}" `
-            -password "${{ secrets.GITHUB_TOKEN }}" `
-            -configfile "$vcpkgRoot\NuGet.Config"
+            -password "${{ secrets.GITHUB_TOKEN }}"
 
           Write-Host "✓ vcpkg binary caching configured with GitHub Packages"
 
