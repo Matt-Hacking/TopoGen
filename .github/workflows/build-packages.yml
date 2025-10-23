@@ -66,6 +66,7 @@ jobs:
           $cacheDir = "$env:LOCALAPPDATA\vcpkg\archives"
           New-Item -ItemType Directory -Force -Path $cacheDir
           echo "VCPKG_DEFAULT_BINARY_CACHE=$cacheDir" >> $env:GITHUB_ENV
+          echo "VCPKG_BINARY_SOURCES=clear;x-gha,readwrite" >> $env:GITHUB_ENV
 
       - name: Cache vcpkg packages (Windows)
         if: runner.os == 'Windows'
