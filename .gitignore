@@ -79,6 +79,8 @@ test/*.geojson
 output/
 *.stl
 *.svg
+# Exception: Allow app icon SVG (source asset, not output)
+!src/gui/resources/icons/*.svg
 *.obj
 *.ply
 *.iges
