@@ -14,7 +14,7 @@ endif()
 # Suppress developer warnings from third-party packages
 set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON CACHE BOOL "Suppress developer warnings" FORCE)
 
-project(TopographicGenerator VERSION 0.22.002 LANGUAGES CXX)
+project(TopographicGenerator VERSION 0.22.003 LANGUAGES CXX)
 
 # Fix for ranlib "Resource busy" issues on mounted volumes
 if(APPLE)
