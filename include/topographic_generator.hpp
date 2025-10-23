@@ -462,7 +462,12 @@ public:
     const PerformanceMetrics& get_metrics() const;
     const MeshValidationResult& get_validation_result() const;
     const OutputTracker& get_output_tracker() const;
-    
+
+    // Data access for export orchestration
+    const TopographicMesh* get_mesh_ptr() const;
+    const std::vector<std::unique_ptr<TopographicMesh>>& get_layer_meshes() const;
+    size_t get_num_layers() const;
+
     // Configuration
     void update_config(const TopographicConfig& config);
     const TopographicConfig& get_config() const;

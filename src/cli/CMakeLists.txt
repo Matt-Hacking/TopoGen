@@ -16,6 +16,7 @@ target_include_directories(TopoCLI
 target_link_libraries(TopoCLI
     PRIVATE
         TopoCore
+        TopoExport  # Required by ExportOrchestrator
 )
 
 target_compile_features(TopoCLI PUBLIC cxx_std_20)

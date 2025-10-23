@@ -14,8 +14,17 @@
 #pragma once
 
 #include "topographic_generator.hpp"
+#include "LabelRenderer.hpp"
+#include "UnitParser.hpp"
 #include "../core/Logger.hpp"
 #include "../core/OutputTracker.hpp"
+#include "../core/ScalingCalculator.hpp"
+#include "../export/MultiFormatExporter.hpp"
+#include "../export/SVGExporter.hpp"
+#include "../export/GeoJSONExporter.hpp"
+#include "../export/ShapefileExporter.hpp"
+#include "../export/PNGExporter.hpp"
+#include "../export/GeoTIFFExporter.hpp"
 #include <string>
 #include <vector>
 #include <memory>
@@ -62,6 +71,20 @@ public:
 private:
     const TopographicGenerator& generator_;
     Logger logger_;
+
+    // Helper methods (extracted from monolithic export_models)
+    bool export_layer_meshes();
+    bool export_stacked_mesh();
+    bool export_svg_layers();
+    bool export_geojson();
+    bool export_shapefile();
+
+    void calculate_scale_factors(
+        double& common_2d_scale,
+        double& common_3d_scale,
+        double& xy_extent,
+        double& z_extent
+    );
 
     // Disable copy/move since we hold a reference
     ExportOrchestrator(const ExportOrchestrator&) = delete;

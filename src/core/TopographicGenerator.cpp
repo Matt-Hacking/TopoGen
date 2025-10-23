@@ -16,12 +16,7 @@
 #include "ScalingCalculator.hpp"
 #include "UnitParser.hpp"
 #include "LabelRenderer.hpp"
-#include "../export/MultiFormatExporter.hpp"
-#include "../export/SVGExporter.hpp"
-#include "../export/PNGExporter.hpp"
-#include "../export/GeoTIFFExporter.hpp"
-#include "../export/GeoJSONExporter.hpp"
-#include "../export/ShapefileExporter.hpp"
+// Export headers removed - export logic moved to ExportOrchestrator
 #include <chrono>
 #include <filesystem>
 #include <CGAL/Constrained_Delaunay_triangulation_2.h>
@@ -148,10 +143,12 @@ public:
             logger_.info("2D-only output formats - skipping mesh generation");
         }
 
-        output_tracker_.startStage("model_export");
-        success &= export_models();
-        output_tracker_.completeStage("model_export", success);
-        
+        // Export stage removed - now handled by ExportOrchestrator in main.cpp
+        // This eliminates the circular dependency between TopoCore and TopoExport
+        // output_tracker_.startStage("model_export");
+        // success &= export_models();
+        // output_tracker_.completeStage("model_export", success);
+
         auto end_time = std::chrono::high_resolution_clock::now();
         metrics_.total_time = std::chrono::duration_cast<std::chrono::milliseconds>(
             end_time - start_time);
@@ -669,603 +666,19 @@ public:
     }
     
     bool export_models() {
-        auto start_time = std::chrono::high_resolution_clock::now();
-
-        // Create output directory
-        std::filesystem::create_directories(config_.output_directory);
-
-        bool success = true;
-
-        // DEBUG: Check state at export time
-        logger_.debug("export_models() - State check:");
-        logger_.debug("  mesh_ is " + std::string(mesh_ ? "NON-NULL" : "NULL"));
-        logger_.debug("  layer_meshes_.size() = " + std::to_string(layer_meshes_.size()));
-
-        // Calculate scale factors using ScalingCalculator
-        // Get mesh bounds to determine XY and Z extents
-        double xy_extent_meters = 0.0;
-        double z_extent_meters = 0.0;
-        [[maybe_unused]] double common_2d_scale_factor = 1.0;
-        double common_3d_scale_factor = 1.0;
-
-        // Calculate bounds from either stacked mesh or layer meshes
-        if (mesh_ && mesh_->num_vertices() > 0) {
-            logger_.debug("Taking FIRST branch - calculating bounds from mesh_");
-            // Get stacked mesh bounds to calculate XY extent and Z extent
-            double stacked_min_x = std::numeric_limits<double>::max();
-            double stacked_max_x = std::numeric_limits<double>::lowest();
-            double stacked_min_y = std::numeric_limits<double>::max();
-            double stacked_max_y = std::numeric_limits<double>::lowest();
-            double stacked_min_z = std::numeric_limits<double>::max();
-            double stacked_max_z = std::numeric_limits<double>::lowest();
-
-            for (auto it = mesh_->vertices_begin(); it != mesh_->vertices_end(); ++it) {
-                stacked_min_x = std::min(stacked_min_x, it->position.x());
-                stacked_max_x = std::max(stacked_max_x, it->position.x());
-                stacked_min_y = std::min(stacked_min_y, it->position.y());
-                stacked_max_y = std::max(stacked_max_y, it->position.y());
-                stacked_min_z = std::min(stacked_min_z, it->position.z());
-                stacked_max_z = std::max(stacked_max_z, it->position.z());
-            }
-
-            double range_x = stacked_max_x - stacked_min_x;
-            double range_y = stacked_max_y - stacked_min_y;
-            double range_z = stacked_max_z - stacked_min_z;
-            xy_extent_meters = std::max(range_x, range_y);
-            z_extent_meters = range_z;
-        } else if (!layer_meshes_.empty()) {
-            // Calculate bounds from layer meshes
-            logger_.debug("Calculating bounds from " + std::to_string(layer_meshes_.size()) + " layer meshes");
-            double stacked_min_x = std::numeric_limits<double>::max();
-            double stacked_max_x = std::numeric_limits<double>::lowest();
-            double stacked_min_y = std::numeric_limits<double>::max();
-            double stacked_max_y = std::numeric_limits<double>::lowest();
-            double stacked_min_z = std::numeric_limits<double>::max();
-            double stacked_max_z = std::numeric_limits<double>::lowest();
-
-            size_t total_vertices = 0;
-            for (const auto& layer_mesh : layer_meshes_) {
-                if (layer_mesh) {
-                    size_t mesh_vertices = layer_mesh->num_vertices();
-                    total_vertices += mesh_vertices;
-                    logger_.debug("  Layer mesh has " + std::to_string(mesh_vertices) + " vertices");
-                    for (auto it = layer_mesh->vertices_begin(); it != layer_mesh->vertices_end(); ++it) {
-                        stacked_min_x = std::min(stacked_min_x, it->position.x());
-                        stacked_max_x = std::max(stacked_max_x, it->position.x());
-                        stacked_min_y = std::min(stacked_min_y, it->position.y());
-                        stacked_max_y = std::max(stacked_max_y, it->position.y());
-                        stacked_min_z = std::min(stacked_min_z, it->position.z());
-                        stacked_max_z = std::max(stacked_max_z, it->position.z());
-                    }
-                }
-            }
-
-            logger_.debug("Total vertices processed: " + std::to_string(total_vertices));
-            logger_.debug("Bounds: X[" + std::to_string(stacked_min_x) + ", " + std::to_string(stacked_max_x) + "]");
-            logger_.debug("Bounds: Y[" + std::to_string(stacked_min_y) + ", " + std::to_string(stacked_max_y) + "]");
-            logger_.debug("Bounds: Z[" + std::to_string(stacked_min_z) + ", " + std::to_string(stacked_max_z) + "]");
-
-            double range_x = stacked_max_x - stacked_min_x;
-            double range_y = stacked_max_y - stacked_min_y;
-            double range_z = stacked_max_z - stacked_min_z;
-            xy_extent_meters = std::max(range_x, range_y);
-            z_extent_meters = range_z;
-
-            logger_.debug("Calculated extents: XY=" + std::to_string(xy_extent_meters) + "m, Z=" + std::to_string(z_extent_meters) + "m");
-        }
-
-        if (mesh_ || !layer_meshes_.empty()) {
-
-            // Calculate scales using ScalingCalculator
-            ScalingCalculator scaling_calc(config_);
-
-            // Determine which outputs we're generating
-            bool has_2d_output = false;
-            bool has_3d_output = false;
-            for (const auto& format : config_.output_formats) {
-                if (format == "svg" || format == "dxf" || format == "pdf") {
-                    has_2d_output = true;
-                } else if (format == "stl" || format == "obj" || format == "ply") {
-                    has_3d_output = true;
-                }
-            }
-
-            // Calculate appropriate scale factors
-            if (has_3d_output) {
-                auto scale_result_3d = scaling_calc.calculate_3d_scale(xy_extent_meters, z_extent_meters);
-                common_3d_scale_factor = scale_result_3d.scale_factor;
-                logger_.info("\n=== 3D Scaling Calculation ===");
-                logger_.info(scale_result_3d.explanation);
-                logger_.info("==============================\n");
-            }
-
-            if (has_2d_output) {
-                auto scale_result_2d = scaling_calc.calculate_2d_scale(xy_extent_meters, z_extent_meters);
-                common_2d_scale_factor = scale_result_2d.scale_factor;
-                logger_.info("\n=== 2D Scaling Calculation ===");
-                logger_.info(scale_result_2d.explanation);
-                logger_.info("==============================\n");
-            }
-
-            // If both outputs use the same scaling method, use the same scale factor
-            if (config_.use_2d_scaling_for_3d || config_.use_3d_scaling_for_2d) {
-                logger_.info("Cross-mode scaling: Using consistent scale factor across 2D and 3D outputs");
-            }
-        }
-
-        if (config_.output_layers && !layer_meshes_.empty()) {
-            logger_.info("Exporting individual layer files...");
-
-            // Export each layer
-            size_t layer_num = 1;
-            for (const auto& mesh_ptr : layer_meshes_) {
-                if (mesh_ptr) {
-                    // Calculate elevation for this layer (estimate from contour layers if available)
-                    double layer_elevation = 0.0;
-                    if (layer_num - 1 < contour_layers_.size()) {
-                        layer_elevation = contour_layers_[layer_num - 1].elevation;
-                    }
-
-                    // Create a temporary exporter with layer-specific filename
-                    std::string layer_filename;
-                    if (config_.filename_pattern.empty()) {
-                        layer_filename = config_.base_name + "_layer_" + std::to_string(layer_num);
-                    } else {
-                        layer_filename = LabelRenderer::substitute_filename_pattern(
-                            config_.filename_pattern,
-                            config_.base_name,
-                            static_cast<int>(layer_num),
-                            layer_elevation
-                        );
-                    }
-
-                    MultiFormatExporter::GlobalOptions layer_opts;
-                    layer_opts.base_filename = layer_filename;
-                    layer_opts.output_directory = config_.output_directory;
-                    layer_opts.filename_pattern = "";  // Pattern already applied to base_filename
-                    layer_opts.verbose = (config_.log_level >= 4);
-                    layer_opts.output_individual_layers = false; // Each layer is already individual
-
-                    MultiFormatExporter layer_exporter(layer_opts);
-
-                    // Configure STL options for layer exporter
-                    // Use common 3D scale factor instead of auto-scaling each layer independently
-                    STLExporter::Options layer_stl_opts;
-                    layer_stl_opts.binary_format = true;
-                    layer_stl_opts.validate_mesh = true;
-                    layer_stl_opts.auto_scale = false;  // Disable auto-scale
-                    layer_stl_opts.scale_factor = common_3d_scale_factor;  // Use common 3D scale
-
-                    if (config_.cutting_bed_size_mm.has_value()) {
-                        layer_stl_opts.target_bed_size_mm = config_.cutting_bed_size_mm.value();
-                    } else if (config_.cutting_bed_x_mm.has_value() && config_.cutting_bed_y_mm.has_value()) {
-                        layer_stl_opts.target_bed_size_mm = std::min(config_.cutting_bed_x_mm.value(), config_.cutting_bed_y_mm.value());
-                    } else {
-                        layer_stl_opts.target_bed_size_mm = config_.substrate_size_mm;
-                    }
-
-                    layer_exporter.set_stl_options(layer_stl_opts);
-
-                    output_tracker_.functionState = "Exporting layer " + std::to_string(layer_num) + " mesh";
-                    output_tracker_.outputFunctionState();
-
-                    bool layer_success = layer_exporter.export_all_formats(*mesh_ptr, config_.output_formats);
-
-                    // Track each exported file for this layer
-                    for (const auto& format : config_.output_formats) {
-                        std::string filename = config_.output_directory + "/" + layer_filename + "." + format;
-                        output_tracker_.trackGeneratedFile(filename, format, "layer", layer_num, 0.0);
-                    }
-
-                    success &= layer_success;
-                    layer_num++;
-                }
-            }
-
-            if (config_.log_level >= 4) {
-                logger_.info("Exported " + std::to_string(layer_meshes_.size()) + " layer files");
-            }
-        }
-
-        // Export stacked model if requested
-        if (config_.output_stacked && mesh_) {
-            // Create stacked filename
-            std::string stacked_filename = config_.base_name + "_stacked";
-
-            MultiFormatExporter::GlobalOptions stacked_opts;
-            stacked_opts.base_filename = stacked_filename;
-            stacked_opts.output_directory = config_.output_directory;
-            stacked_opts.filename_pattern = config_.filename_pattern;
-            stacked_opts.verbose = (config_.log_level >= 4);
-            stacked_opts.output_individual_layers = false;
-
-            MultiFormatExporter stacked_exporter(stacked_opts);
-
-            // Configure STL options for stacked exporter (same as main exporter)
-            STLExporter::Options stacked_stl_opts;
-            stacked_stl_opts.binary_format = true;
-            stacked_stl_opts.validate_mesh = true;
-            stacked_stl_opts.auto_scale = true;
-
-            if (config_.cutting_bed_size_mm.has_value()) {
-                stacked_stl_opts.target_bed_size_mm = config_.cutting_bed_size_mm.value();
-            } else if (config_.cutting_bed_x_mm.has_value() && config_.cutting_bed_y_mm.has_value()) {
-                stacked_stl_opts.target_bed_size_mm = std::min(config_.cutting_bed_x_mm.value(), config_.cutting_bed_y_mm.value());
-            } else {
-                stacked_stl_opts.target_bed_size_mm = config_.substrate_size_mm;
-            }
-
-            stacked_exporter.set_stl_options(stacked_stl_opts);
-
-            output_tracker_.functionState = "Exporting stacked model";
-            output_tracker_.outputFunctionState();
-
-            bool stacked_success = stacked_exporter.export_all_formats(*mesh_, config_.output_formats);
-
-            // Track each exported file for stacked model (skip SVG as it doesn't make sense for 3D stacked models)
-            for (const auto& format : config_.output_formats) {
-                if (format != "svg") {  // SVG doesn't make sense for stacked 3D models
-                    std::string filename = config_.output_directory + "/" + stacked_filename + "." + format;
-                    output_tracker_.trackGeneratedFile(filename, format, "stacked", -1, 0.0);
-                }
-            }
-
-            if (config_.log_level >= 4) {
-                if (stacked_success) {
-                    logger_.info("Exported stacked model");
-                } else {
-                    logger_.error("Failed to export stacked model");
-                }
-            }
-
-            success &= stacked_success;
-        } else if (!config_.output_layers && mesh_) {
-            // Export combined mesh when not outputting individual layers
-            output_tracker_.functionState = "Exporting combined model";
-            output_tracker_.outputFunctionState();
-
-            success = exporter_->export_all_formats(*mesh_, config_.output_formats);
-
-            // Track each exported file for combined model
-            for (const auto& format : config_.output_formats) {
-                std::string filename = config_.output_directory + "/" + config_.base_name + "." + format;
-                output_tracker_.trackGeneratedFile(filename, format, "combined", -1, 0.0);
-            }
-        } else if (!config_.output_layers && !config_.output_stacked) {
-            success = false;
-        }
-
-        // Calculate global elevation range before filtering for consistent color mapping
-        double global_min_elev = contour_layers_.empty() ? 0.0 : contour_layers_.front().elevation;
-        double global_max_elev = contour_layers_.empty() ? 0.0 : contour_layers_.back().elevation;
-        for (const auto& layer : contour_layers_) {
-            global_min_elev = std::min(global_min_elev, layer.elevation);
-            global_max_elev = std::max(global_max_elev, layer.elevation);
-        }
-
-        // Filter layers if specific_layers is specified
-        std::vector<ContourLayer> layers_to_export = contour_layers_;
-        if (!config_.specific_layers.empty()) {
-            std::vector<ContourLayer> filtered_layers;
-            for (size_t i = 0; i < contour_layers_.size(); ++i) {
-                // Layer numbers are 1-indexed in user input, but 0-indexed in vector
-                int layer_number = static_cast<int>(i + 1);
-                if (std::find(config_.specific_layers.begin(), config_.specific_layers.end(), layer_number) != config_.specific_layers.end()) {
-                    filtered_layers.push_back(contour_layers_[i]);
-                }
-            }
-            layers_to_export = filtered_layers;
-
-            if (config_.log_level >= 4) {
-                logger_.info("Layer filtering active: exporting " + std::to_string(layers_to_export.size()) +
-                           " of " + std::to_string(contour_layers_.size()) + " layers");
-            }
-        }
-
-        // Handle SVG export separately if requested and contour data is available
-        auto svg_it = std::find(config_.output_formats.begin(), config_.output_formats.end(), "svg");
-        if (svg_it != config_.output_formats.end() && !layers_to_export.empty()) {
-            // Export SVG files using SVGExporter
-            SVGConfig svg_config;
-            svg_config.base_filename = config_.base_name;
-            svg_config.filename_pattern = config_.filename_pattern;
-            svg_config.output_directory = config_.output_directory;
-            svg_config.verbose = (config_.log_level >= 4);
-            svg_config.separate_layers = config_.output_layers;
-            svg_config.force_all_layers = config_.force_all_layers;
-            svg_config.remove_holes = config_.remove_holes;
-            svg_config.render_mode = config_.render_mode;
-            svg_config.color_scheme = config_.color_scheme;  // Pass color scheme to SVG exporter
-
-            // Pass configurable colors (convert RGB hex to #RRGGBB format)
-            svg_config.stroke_color = "#" + config_.stroke_color;
-            svg_config.background_color = "#" + config_.background_color;
-
-            // Pass stroke width (treat as millimeters for SVG)
-            svg_config.cut_stroke_width = config_.stroke_width;
-
-            // Pass label configuration
-            svg_config.base_label_visible = config_.base_label_visible;
-            svg_config.base_label_hidden = config_.base_label_hidden;
-            svg_config.layer_label_visible = config_.layer_label_visible;
-            svg_config.layer_label_hidden = config_.layer_label_hidden;
-            svg_config.visible_label_color = config_.visible_label_color;
-            svg_config.hidden_label_color = config_.hidden_label_color;
-            svg_config.base_font_size_mm = config_.base_font_size_mm;
-            svg_config.layer_font_size_mm = config_.layer_font_size_mm;
-
-            // Pass label context information
-            svg_config.geographic_bounds = config_.bounds;
-
-            // Compute scale ratio from scale factor (e.g., 1:25000)
-            // If explicit_2d_scale_factor is set (in mm/m), compute ratio as 1000/scale_factor
-            // Otherwise use a default value of 1.0 (will be substituted as "Scale 1:1")
-            if (config_.explicit_2d_scale_factor.has_value() && config_.explicit_2d_scale_factor.value() > 0) {
-                svg_config.scale_ratio = 1000.0 / config_.explicit_2d_scale_factor.value();
-            } else {
-                svg_config.scale_ratio = 1.0;  // Default ratio if not specified
-            }
-
-            svg_config.contour_height_m = config_.contour_interval;
-            svg_config.substrate_size_mm = config_.substrate_size_mm;
-            svg_config.label_units = config_.label_units;
-            svg_config.print_units = config_.print_units;
-            svg_config.land_units = config_.land_units;
-
-            SVGExporter svg_exporter(svg_config);
-
-            output_tracker_.functionState = "Exporting SVG files";
-            output_tracker_.outputFunctionState();
-
-            // Pass geographic bounds for consistent coordinate transformation across all layers
-            auto svg_files = svg_exporter.export_layers(layers_to_export, config_.output_layers,
-                                                       global_min_elev, global_max_elev,
-                                                       &config_.bounds);
-
-            // Track SVG files
-            for (const auto& svg_file : svg_files) {
-                output_tracker_.trackGeneratedFile(svg_file, "svg", "layer", -1, 0.0);
-            }
-
-            if (svg_files.empty()) {
-                if (config_.log_level >= 4) {
-                    logger_.warning("SVG export failed - no files generated");
-                }
-                success = false;
-            } else if (config_.log_level >= 4) {
-                logger_.info("Successfully exported " + std::to_string(svg_files.size()) + " SVG files");
-            }
-        }
-
-        // Handle PNG export if requested and contour data is available
-        auto png_it = std::find(config_.output_formats.begin(), config_.output_formats.end(), "png");
-        if (png_it != config_.output_formats.end() && !layers_to_export.empty()) {
-            PNGExporter::Options png_opts;
-            png_opts.width_px = 2048;
-            png_opts.height_px = 0;  // Auto-calculate from geographic bounds aspect ratio
-
-            // Convert SVG margin from mm to pixels to ensure consistent scaling
-            // SVGConfig defaults to 10mm margin, convert using DPI
-            constexpr double SVG_DEFAULT_MARGIN_MM = 10.0;
-            png_opts.margin_px = UnitParser::mm_to_pixels(SVG_DEFAULT_MARGIN_MM, config_.print_resolution_dpi);
-
-            png_opts.color_scheme = config_.color_scheme;
-            png_opts.render_mode = config_.render_mode;
-            png_opts.add_alignment_marks = config_.add_registration_marks;
-            png_opts.stroke_color = config_.stroke_color;
-            png_opts.background_color = config_.background_color;
-            // Convert stroke_width from mm to pixels using DPI
-            png_opts.stroke_width = UnitParser::mm_to_pixels(config_.stroke_width, config_.print_resolution_dpi);
-            png_opts.font_path = config_.font_path;
-            png_opts.font_face = config_.font_face;
-            png_opts.remove_holes = config_.remove_holes;
-            png_opts.filename_pattern = config_.filename_pattern;
-            png_opts.base_label_visible = config_.base_label_visible;
-            png_opts.base_label_hidden = config_.base_label_hidden;
-            png_opts.layer_label_visible = config_.layer_label_visible;
-            png_opts.layer_label_hidden = config_.layer_label_hidden;
-            png_opts.visible_label_color = config_.visible_label_color;
-            png_opts.hidden_label_color = config_.hidden_label_color;
-            png_opts.base_font_size_mm = config_.base_font_size_mm;
-            png_opts.layer_font_size_mm = config_.layer_font_size_mm;
-            PNGExporter png_exporter(png_opts);
-
-            std::string base_filename = config_.output_directory + "/" + config_.base_name;
-            output_tracker_.functionState = "Exporting PNG raster";
-            output_tracker_.outputFunctionState();
-
-            auto png_files = png_exporter.export_png(layers_to_export, base_filename, config_.bounds, config_.output_layers);
-
-            // Track all generated PNG files
-            for (const auto& png_file : png_files) {
-                output_tracker_.trackGeneratedFile(png_file, "png", "raster", -1, 0.0);
-            }
-
-            if (!png_files.empty()) {
-                if (config_.log_level >= 4) {
-                    logger_.info("Successfully exported " + std::to_string(png_files.size()) + " PNG file(s)");
-                }
-            } else {
-                if (config_.log_level >= 4) {
-                    logger_.warning("PNG export failed - no files generated");
-                }
-                success = false;
-            }
-        }
-
-        // Handle GeoTIFF export if requested and contour data is available
-        auto geotiff_it = std::find(config_.output_formats.begin(), config_.output_formats.end(), "geotiff");
-        if (geotiff_it != config_.output_formats.end() && !layers_to_export.empty()) {
-            GeoTIFFExporter::Options geotiff_opts;
-            geotiff_opts.width_px = 2048;
-            geotiff_opts.height_px = 0;  // Auto-calculate from aspect ratio
-            geotiff_opts.color_scheme = config_.color_scheme;
-            geotiff_opts.render_mode = config_.render_mode;
-            geotiff_opts.projection_wkt = "EPSG:4326";  // WGS84
-            geotiff_opts.compression = GeoTIFFExporter::Options::Compression::DEFLATE;
-            geotiff_opts.add_alignment_marks = config_.add_registration_marks;
-            geotiff_opts.stroke_color = config_.stroke_color;
-            geotiff_opts.background_color = config_.background_color;
-            geotiff_opts.stroke_width = config_.stroke_width;
-            GeoTIFFExporter geotiff_exporter(geotiff_opts);
-
-            std::string base_filename = config_.output_directory + "/" + config_.base_name;
-            output_tracker_.functionState = "Exporting GeoTIFF raster";
-            output_tracker_.outputFunctionState();
-
-            auto geotiff_files = geotiff_exporter.export_geotiff(layers_to_export, base_filename, config_.bounds, config_.output_layers);
-
-            // Track all generated GeoTIFF files
-            for (const auto& geotiff_file : geotiff_files) {
-                output_tracker_.trackGeneratedFile(geotiff_file, "geotiff", "raster", -1, 0.0);
-            }
-
-            if (!geotiff_files.empty()) {
-                if (config_.log_level >= 4) {
-                    logger_.info("Successfully exported " + std::to_string(geotiff_files.size()) + " GeoTIFF file(s)");
-                }
-            } else {
-                if (config_.log_level >= 4) {
-                    logger_.warning("GeoTIFF export failed - no files generated");
-                }
-                success = false;
-            }
-        }
-
-        // Handle GeoJSON export if requested and contour data is available
-        auto geojson_it = std::find(config_.output_formats.begin(), config_.output_formats.end(), "geojson");
-        if (geojson_it != config_.output_formats.end() && !layers_to_export.empty()) {
-            GeoJSONExporter::Options geojson_opts;
-            geojson_opts.pretty_print = true;
-            geojson_opts.include_crs = true;
-            geojson_opts.crs = "urn:ogc:def:crs:OGC:1.3:CRS84";  // WGS84
-            geojson_opts.precision = 6;
-            GeoJSONExporter geojson_exporter(geojson_opts);
-
-            output_tracker_.functionState = "Exporting GeoJSON vector";
-            output_tracker_.outputFunctionState();
-
-            if (config_.output_layers) {
-                // Export each layer separately
-                int exported_count = 0;
-                for (size_t i = 0; i < layers_to_export.size(); ++i) {
-                    const auto& layer = layers_to_export[i];
-
-                    // Format elevation with proper precision for filename
-                    std::ostringstream elev_str;
-                    elev_str << std::fixed << std::setprecision(0) << layer.elevation;
-
-                    std::string layer_filename = config_.output_directory + "/" +
-                                                config_.base_name +
-                                                "_layer_" + std::to_string(i + 1) +
-                                                "_elev_" + elev_str.str() + "m.geojson";
-
-                    bool layer_success = geojson_exporter.export_layer(layer, layer_filename, static_cast<int>(i + 1));
-
-                    if (layer_success) {
-                        output_tracker_.trackGeneratedFile(layer_filename, "geojson", "layer",
-                                                          static_cast<int>(i + 1), layer.elevation);
-                        exported_count++;
-                    } else {
-                        if (config_.log_level >= 4) {
-                            logger_.warning("Failed to export GeoJSON layer " + std::to_string(i + 1));
-                        }
-                        success = false;
-                    }
-                }
-
-                if (config_.log_level >= 4) {
-                    logger_.info("Successfully exported " + std::to_string(exported_count) + " GeoJSON layer file(s)");
-                }
-            } else {
-                // Export all layers combined
-                std::string filename = config_.output_directory + "/" + config_.base_name + ".geojson";
-                bool geojson_success = geojson_exporter.export_geojson(layers_to_export, filename);
-
-                if (geojson_success) {
-                    output_tracker_.trackGeneratedFile(filename, "geojson", "vector", -1, 0.0);
-                    if (config_.log_level >= 4) {
-                        logger_.info("Successfully exported GeoJSON: " + filename);
-                    }
-                } else {
-                    if (config_.log_level >= 4) {
-                        logger_.warning("GeoJSON export failed");
-                    }
-                    success = false;
-                }
-            }
-        }
-
-        // Handle Shapefile export if requested and contour data is available
-        auto shapefile_it = std::find(config_.output_formats.begin(), config_.output_formats.end(), "shapefile");
-        if (shapefile_it != config_.output_formats.end() && !layers_to_export.empty()) {
-            ShapefileExporter::Options shapefile_opts;
-            shapefile_opts.add_layer_field = true;
-            shapefile_opts.add_elevation_field = true;
-            shapefile_opts.projection_wkt = "EPSG:4326";  // WGS84
-            ShapefileExporter shapefile_exporter(shapefile_opts);
-
-            output_tracker_.functionState = "Exporting Shapefile vector";
-            output_tracker_.outputFunctionState();
-
-            if (config_.output_layers) {
-                // Export each layer separately
-                int exported_count = 0;
-                for (size_t i = 0; i < layers_to_export.size(); ++i) {
-                    const auto& layer = layers_to_export[i];
-
-                    // Format elevation with proper precision for filename
-                    std::ostringstream elev_str;
-                    elev_str << std::fixed << std::setprecision(0) << layer.elevation;
-
-                    std::string layer_filename = config_.output_directory + "/" +
-                                                config_.base_name +
-                                                "_layer_" + std::to_string(i + 1) +
-                                                "_elev_" + elev_str.str() + "m.shp";
-
-                    bool layer_success = shapefile_exporter.export_layer(layer, layer_filename, static_cast<int>(i + 1));
-
-                    if (layer_success) {
-                        output_tracker_.trackGeneratedFile(layer_filename, "shapefile", "layer",
-                                                          static_cast<int>(i + 1), layer.elevation);
-                        exported_count++;
-                    } else {
-                        if (config_.log_level >= 4) {
-                            logger_.warning("Failed to export Shapefile layer " + std::to_string(i + 1));
-                        }
-                        success = false;
-                    }
-                }
-
-                if (config_.log_level >= 4) {
-                    logger_.info("Successfully exported " + std::to_string(exported_count) + " Shapefile layer file(s)");
-                }
-            } else {
-                // Export all layers combined
-                std::string filename = config_.output_directory + "/" + config_.base_name + ".shp";
-                bool shapefile_success = shapefile_exporter.export_shapefile(layers_to_export, filename);
-
-                if (shapefile_success) {
-                    output_tracker_.trackGeneratedFile(filename, "shapefile", "vector", -1, 0.0);
-                    if (config_.log_level >= 4) {
-                        logger_.info("Successfully exported Shapefile: " + filename);
-                    }
-                } else {
-                    if (config_.log_level >= 4) {
-                        logger_.warning("Shapefile export failed");
-                    }
-                    success = false;
-                }
-            }
-        }
-
-        auto end_time = std::chrono::high_resolution_clock::now();
-        metrics_.export_time = std::chrono::duration_cast<std::chrono::milliseconds>(
-            end_time - start_time);
-
-        return success;
+        // DEPRECATED: Export logic has been moved to ExportOrchestrator in TopoCLI
+        // This method is no longer used and will be removed in a future version
+        logger_.error("DEPRECATED: TopographicGenerator::Impl::export_models() should not be called");
+        logger_.error("Export logic has been moved to ExportOrchestrator");
+        logger_.error("Please use ExportOrchestrator::export_all_formats() instead");
+        return false;
     }
-    
+
+    // Old export_models() implementation removed - replaced with deprecation error above
+    // The full export orchestration logic is now in src/cli/ExportOrchestrator.cpp
+    // This eliminates the circular dependency between TopoCore and TopoExport
+    // (~600 lines removed from here)
+
     const TopographicMesh& get_mesh() const {
         if (!mesh_) {
             throw std::runtime_error("Mesh not generated yet");
@@ -1287,6 +700,13 @@ public:
     const MeshValidationResult& get_validation_result() const { return validation_result_; }
     const OutputTracker& get_output_tracker() const { return output_tracker_; }
 
+    // Getters for ExportOrchestrator
+    const TopographicMesh* get_mesh_ptr() const { return mesh_.get(); }
+    const std::vector<std::unique_ptr<TopographicMesh>>& get_layer_meshes() const {
+        return layer_meshes_;
+    }
+    size_t get_num_layers() const { return config_.num_layers; }
+
 private:
     TopographicConfig config_;
     Logger logger_;
@@ -1295,7 +715,7 @@ private:
     std::unique_ptr<ElevationProcessor> elevation_processor_;
     // TrianglePlaneIntersector removed - unused dead code
     std::unique_ptr<ContourGenerator> contour_generator_;
-    std::unique_ptr<MultiFormatExporter> exporter_;
+    // exporter_ removed - export logic moved to ExportOrchestrator
     std::unique_ptr<TopographicMesh> mesh_;
     
     // Generated contour data
@@ -1324,40 +744,8 @@ private:
         contour_config.base_filename = config_.base_name;  // Pass base filename for output files
 
         contour_generator_->set_config(contour_config);
-        
-        // Configure exporter
-        MultiFormatExporter::GlobalOptions export_opts;
-        export_opts.output_directory = config_.output_directory;
-        export_opts.base_filename = config_.base_name;
-        export_opts.filename_pattern = config_.filename_pattern;
-        export_opts.verbose = (config_.log_level >= 4);
-        export_opts.output_individual_layers = config_.output_layers;
-        exporter_ = std::make_unique<MultiFormatExporter>(export_opts);
-        
-        // Configure format-specific options
-        STLExporter::Options stl_opts;
-        stl_opts.binary_format = true;
-        stl_opts.validate_mesh = true;
-        stl_opts.auto_scale = true;
 
-        // Configure target bed size from user settings or default
-        if (config_.cutting_bed_size_mm.has_value()) {
-            stl_opts.target_bed_size_mm = config_.cutting_bed_size_mm.value();
-        } else if (config_.cutting_bed_x_mm.has_value() && config_.cutting_bed_y_mm.has_value()) {
-            // Use the smaller dimension to ensure it fits in both X and Y
-            stl_opts.target_bed_size_mm = std::min(config_.cutting_bed_x_mm.value(), config_.cutting_bed_y_mm.value());
-        } else {
-            // Use substrate_size_mm as default fallback
-            stl_opts.target_bed_size_mm = config_.substrate_size_mm;
-        }
-
-        exporter_->set_stl_options(stl_opts);
-        
-        OBJExporter::Options obj_opts;
-        obj_opts.include_materials = config_.obj_include_materials;
-        obj_opts.elevation_coloring = config_.obj_elevation_colors;
-        obj_opts.color_scheme = static_cast<ColorMapper::Scheme>(config_.color_scheme);
-        // exporter_->set_obj_options(obj_opts);
+        // Exporter configuration removed - now handled by ExportOrchestrator in TopoCLI
     }
     
     bool generate_terrain_following_mesh() {
@@ -2275,6 +1663,19 @@ const MeshValidationResult& TopographicGenerator::get_validation_result() const 
 
 const OutputTracker& TopographicGenerator::get_output_tracker() const {
     return impl_->get_output_tracker();
+}
+
+const TopographicMesh* TopographicGenerator::get_mesh_ptr() const {
+    return impl_->get_mesh_ptr();
+}
+
+const std::vector<std::unique_ptr<TopographicMesh>>&
+TopographicGenerator::get_layer_meshes() const {
+    return impl_->get_layer_meshes();
+}
+
+size_t TopographicGenerator::get_num_layers() const {
+    return impl_->get_num_layers();
 }
 
 void TopographicGenerator::update_config(const TopographicConfig& config) {

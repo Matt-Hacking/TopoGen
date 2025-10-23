@@ -453,9 +453,8 @@ add_executable(topo-gen
 target_link_libraries(topo-gen
     PRIVATE
     TopoCLI
-    TopoCore      # First pass: resolve TopoCore symbols
-    TopoExport    # Provides export symbols needed by TopoCore
-    TopoCore      # Second pass: resolve circular dependencies
+    TopoCore
+    TopoExport
 )
 
 # Link OpenMP if available

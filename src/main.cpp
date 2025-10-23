@@ -12,6 +12,7 @@
 #include "topographic_generator.hpp"
 #include "core/OutputTracker.hpp"
 #include "cli/CommandLineInterface.hpp"
+#include "cli/ExportOrchestrator.hpp"
 #include <iostream>
 #include <chrono>
 #include <filesystem>
@@ -159,7 +160,7 @@ int main(int argc, char* argv[]) {
         }
         auto generator = std::make_unique<TopographicGenerator>(config);
 
-        // Generate model
+        // Generate model (data only - no export)
         if (config.log_level > 0) {
             std::cout << "Starting model generation...\n";
         }
@@ -167,6 +168,18 @@ int main(int argc, char* argv[]) {
 
         if (!success) {
             std::cerr << "Error: Model generation failed\n";
+            return 1;
+        }
+
+        // Export models using ExportOrchestrator
+        if (config.log_level > 0) {
+            std::cout << "Starting model export...\n";
+        }
+        ExportOrchestrator exporter(*generator);
+        bool export_success = exporter.export_all_formats();
+
+        if (!export_success) {
+            std::cerr << "Error: Model export failed\n";
             return 1;
         }
 
