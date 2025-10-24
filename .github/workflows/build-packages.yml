@@ -204,6 +204,9 @@ jobs:
         run: |
           choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
 
+          # Configure vcpkg for release-only builds (skip debug to avoid Qt build issues)
+          echo "VCPKG_BUILD_TYPE=release" >> $env:GITHUB_ENV
+
           # Use manifest mode with vcpkg.json for minimal dependencies
           echo "Installing dependencies from vcpkg.json manifest..."
           vcpkg install --triplet x64-windows --x-manifest-root=${{ github.workspace }}
