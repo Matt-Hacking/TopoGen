@@ -119,11 +119,20 @@ jobs:
           # Install aqtinstall
           pip install aqtinstall
 
+          # First, check available architectures and modules
+          Write-Host "`nAvailable architectures for Qt 6.9.1:"
+          aqt list-qt windows desktop --arch 6.9.1
+
+          Write-Host "`nAvailable modules for win64_msvc2022_64:"
+          aqt list-qt windows desktop --modules 6.9.1 win64_msvc2022_64
+
           # Install Qt 6.9.1 for Windows with required modules
-          # Modules: qtwebengine (includes qtdeclarative), qtwebchannel, qtsvg
-          aqt install-qt windows desktop 6.9.1 win64_msvc2019_64 `
+          # Note: Module names don't have 'qt' prefix in aqt
+          # Modules: webengine (includes declarative), webchannel, svg, shadertools
+          Write-Host "`nInstalling Qt 6.9.1 with modules..."
+          aqt install-qt windows desktop 6.9.1 win64_msvc2022_64 `
             -O C:\Qt `
-            -m qtwebengine qtwebchannel qtsvg qtshadertools
+            -m qtwebengine qtwebchannel qtsvg qtshadertools qtdeclarative qtpositioning qtwebview
 
           Write-Host "✓ Qt 6.9.1 installed successfully"
 
@@ -131,7 +140,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $qtPath = "C:\Qt\6.9.1\msvc2019_64"
+          $qtPath = "C:\Qt\6.9.1\msvc2022_64"
           echo "CMAKE_PREFIX_PATH=$qtPath" >> $env:GITHUB_ENV
           echo "Qt6_DIR=$qtPath\lib\cmake\Qt6" >> $env:GITHUB_ENV
           Write-Host "✓ Qt paths configured: $qtPath"
@@ -379,7 +388,7 @@ jobs:
             cmake -B build \
               -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
               -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install \
-              -DCMAKE_PREFIX_PATH="C:/Qt/6.9.1/msvc2019_64" \
+              -DCMAKE_PREFIX_PATH="C:/Qt/6.9.1/msvc2022_64" \
               -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake \
               -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }} \
               -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }}
