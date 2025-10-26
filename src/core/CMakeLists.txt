@@ -118,10 +118,19 @@ endif()
 
 # Compiler-specific optimizations
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_options(TopoCore PRIVATE
-        $<$<CXX_COMPILER_ID:GNU,Clang>:-O3 -march=native -mtune=native>
-        $<$<CXX_COMPILER_ID:MSVC>:/O2>
-    )
+    if(CMAKE_CROSSCOMPILING)
+        # Cross-compilation (e.g., QEMU ARM64): use generic optimization
+        target_compile_options(TopoCore PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:-O3>
+            $<$<CXX_COMPILER_ID:MSVC>:/O2>
+        )
+    else()
+        # Native compilation: use architecture-specific optimization
+        target_compile_options(TopoCore PRIVATE
+            $<$<CXX_COMPILER_ID:GNU,Clang>:-O3 -march=native -mtune=native>
+            $<$<CXX_COMPILER_ID:MSVC>:/O2>
+        )
+    endif()
 endif()
 
 # Add subdirectories for implementations

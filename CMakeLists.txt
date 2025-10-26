@@ -37,7 +37,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Compiler-specific optimizations
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=native -mtune=native")
+    # Use -march=native only for native builds, not cross-compilation
+    # For cross-compilation (like QEMU ARM64), use generic optimization
+    if(CMAKE_CROSSCOMPILING)
+        set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+    else()
+        set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=native -mtune=native")
+    endif()
     set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -gdwarf-4 -Wall -Wextra -Wpedantic")
     
     # macOS-specific settings
