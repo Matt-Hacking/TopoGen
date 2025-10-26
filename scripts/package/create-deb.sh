@@ -491,7 +491,7 @@ if [[ "$CREATE_SOURCE" == true ]]; then
 
     if command -v git &> /dev/null && [[ -d "$PROJECT_ROOT/.git" ]]; then
         # Use git archive for clean source
-        git -C "$PROJECT_ROOT" archive --format=tar --prefix="${SRC_NAME}/" HEAD | gzip > "$OUTPUT_DIR/topo-gen_${VERSION}.orig.tar.gz"
+        git -C "$PROJECT_ROOT" archive --format=tar --prefix="${SRC_NAME}/" HEAD | gzip > "$SRC_TEMP_DIR/topo-gen_${VERSION}.orig.tar.gz"
         log_success "Created orig.tar.gz from git"
     else
         # Manual copy
@@ -499,7 +499,7 @@ if [[ "$CREATE_SOURCE" == true ]]; then
         log_info "Copying source files..."
         cp -r "$PROJECT_ROOT"/{src,include,docs,scripts,CMakeLists.txt,vcpkg.json,LICENSE,COPYRIGHT,README.md} "$SRC_DIR/" 2>/dev/null || true
         cd "$SRC_TEMP_DIR"
-        tar -czf "$OUTPUT_DIR/topo-gen_${VERSION}.orig.tar.gz" "$SRC_NAME"
+        tar -czf "topo-gen_${VERSION}.orig.tar.gz" "$SRC_NAME"
         cd "$PROJECT_ROOT"
         rm -rf "$SRC_DIR"
         log_success "Created orig.tar.gz from source tree"
@@ -507,7 +507,7 @@ if [[ "$CREATE_SOURCE" == true ]]; then
 
     # Extract orig tarball for debian packaging
     cd "$SRC_TEMP_DIR"
-    tar -xzf "$OUTPUT_DIR/topo-gen_${VERSION}.orig.tar.gz"
+    tar -xzf "topo-gen_${VERSION}.orig.tar.gz"
 
     # Create debian directory structure
     DEBIAN_DIR="$SRC_DIR/debian"
@@ -594,6 +594,7 @@ EOF
     # Move source package files to output directory
     mv "$SRC_TEMP_DIR"/*.dsc "$OUTPUT_DIR/" 2>/dev/null || true
     mv "$SRC_TEMP_DIR"/*.debian.tar.xz "$OUTPUT_DIR/" 2>/dev/null || true
+    mv "$SRC_TEMP_DIR"/*.orig.tar.gz "$OUTPUT_DIR/" 2>/dev/null || true
 
     # Clean up
     rm -rf "$SRC_TEMP_DIR"
