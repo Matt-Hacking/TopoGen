@@ -383,6 +383,10 @@ jobs:
         run: |
           if [ "${{ runner.os }}" = "Windows" ]; then
             # Windows: Use vcpkg for non-Qt dependencies, prebuilt Qt from aqtinstall
+            echo "VCPKG_ROOT=${VCPKG_ROOT}"
+            echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}"
+            ls -la "${VCPKG_ROOT}/scripts/buildsystems/" || echo "VCPKG_ROOT path not found"
+
             cmake -B build \
               -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
               -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install \
