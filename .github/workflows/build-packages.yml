@@ -438,10 +438,12 @@ jobs:
             build/topo-gen
 
       - name: Create packages
+        shell: bash
         run: |
           ./scripts/deploy.sh ${{ matrix.config.packages }} --clean-build
 
       - name: List created packages
+        shell: bash
         run: |
           echo "=== Created Packages ==="
           find dist -type f \( -name "*.dmg" -o -name "*.pkg" -o -name "*.deb" -o -name "*.rpm" -o -name "*.msi" -o -name "*.zip" -o -name "*.AppImage" -o -name "*.tar.gz" \) -ls
