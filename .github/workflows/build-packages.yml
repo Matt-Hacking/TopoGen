@@ -593,11 +593,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Optional: Build ARM64 Linux via QEMU (slower but comprehensive)
+  # Build ARM64 Linux via QEMU (cross-compilation)
   build-linux-arm64:
     name: Linux ARM64 (via QEMU)
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')  # Only on releases
 
     steps:
       - name: Checkout code
