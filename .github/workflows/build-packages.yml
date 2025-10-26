@@ -49,6 +49,93 @@ jobs:
         with:
           fetch-depth: 0  # Full history for version info
 
+      # ===== Disk Space Cleanup (Windows only) =====
+
+      - name: Free up disk space (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "=== Disk Space Before Cleanup ==="
+          Get-PSDrive C | Select-Object Used,Free | Format-Table
+
+          Write-Host "`n=== Removing unnecessary preinstalled software ==="
+
+          # Remove .NET SDKs (except required versions)
+          Write-Host "Removing extra .NET SDKs..."
+          Remove-Item -Path "C:\Program Files\dotnet\sdk\6.*" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "C:\Program Files\dotnet\sdk\7.*" -Recurse -Force -ErrorAction SilentlyContinue
+
+          # Remove Android SDK (not needed for C++ builds)
+          Write-Host "Removing Android SDK..."
+          if (Test-Path $env:ANDROID_HOME) {
+            Remove-Item -Path $env:ANDROID_HOME -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          # Remove old Java versions (keep latest)
+          Write-Host "Removing old Java versions..."
+          Remove-Item -Path "C:\hostedtoolcache\Java_Temurin-Hotspot_jdk\8.*" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "C:\hostedtoolcache\Java_Temurin-Hotspot_jdk\11.*" -Recurse -Force -ErrorAction SilentlyContinue
+
+          # Remove large tool caches not needed
+          Write-Host "Removing unused tool caches..."
+          Remove-Item -Path "C:\hostedtoolcache\Ruby" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "C:\hostedtoolcache\PyPy" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "C:\hostedtoolcache\go" -Recurse -Force -ErrorAction SilentlyContinue
+
+          # Remove Visual Studio Installer cache
+          Write-Host "Cleaning Visual Studio cache..."
+          Remove-Item -Path "C:\Program Files (x86)\Microsoft Visual Studio\Installer\*" -Recurse -Force -ErrorAction SilentlyContinue
+
+          Write-Host "`n=== Disk Space After Cleanup ==="
+          Get-PSDrive C | Select-Object Used,Free | Format-Table
+
+          $freeGB = [math]::Round((Get-PSDrive C).Free / 1GB, 2)
+          Write-Host "✓ Cleanup complete - $freeGB GB free"
+
+      # ===== Qt Prebuilt Binaries Setup (Windows) =====
+
+      - name: Setup Python for aqtinstall (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache Qt installation (Windows)
+        if: runner.os == 'Windows'
+        id: cache-qt
+        uses: actions/cache@v4
+        with:
+          path: C:\Qt\6.9.1
+          key: ${{ runner.os }}-qt-6.9.1-webengine-v1
+          restore-keys: |
+            ${{ runner.os }}-qt-6.9.1-
+
+      - name: Install Qt prebuilt binaries via aqtinstall (Windows)
+        if: runner.os == 'Windows' && steps.cache-qt.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          Write-Host "=== Installing Qt 6.9.1 with aqtinstall ==="
+
+          # Install aqtinstall
+          pip install aqtinstall
+
+          # Install Qt 6.9.1 for Windows with required modules
+          # Modules: qtwebengine (includes qtdeclarative), qtwebchannel, qtsvg
+          aqt install-qt windows desktop 6.9.1 win64_msvc2019_64 `
+            -O C:\Qt `
+            -m qtwebengine qtwebchannel qtsvg qtshadertools
+
+          Write-Host "✓ Qt 6.9.1 installed successfully"
+
+      - name: Configure Qt paths (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $qtPath = "C:\Qt\6.9.1\msvc2019_64"
+          echo "CMAKE_PREFIX_PATH=$qtPath" >> $env:GITHUB_ENV
+          echo "Qt6_DIR=$qtPath\lib\cmake\Qt6" >> $env:GITHUB_ENV
+          Write-Host "✓ Qt paths configured: $qtPath"
+
       # ===== Caching Setup =====
 
       - name: Cache Homebrew packages (macOS)
@@ -207,12 +294,48 @@ jobs:
           # Configure vcpkg for release-only builds (skip debug to avoid Qt build issues)
           echo "VCPKG_BUILD_TYPE=release" >> $env:GITHUB_ENV
 
-          # Use manifest mode with vcpkg.json for minimal dependencies
-          echo "Installing dependencies from vcpkg.json manifest..."
-          vcpkg install --triplet x64-windows --x-manifest-root=${{ github.workspace }}
+          # Install dependencies WITHOUT Qt (using prebuilt Qt from aqtinstall instead)
+          # This avoids the qtdeclarative build failure and saves significant build time
+          echo "Installing non-Qt dependencies from vcpkg..."
+          vcpkg install --triplet x64-windows `
+            gdal[png]:x64-windows `
+            cgal:x64-windows `
+            eigen3:x64-windows `
+            tbb:x64-windows `
+            freetype:x64-windows `
+            curl:x64-windows `
+            openssl:x64-windows `
+            zlib:x64-windows `
+            gmp:x64-windows `
+            mpfr:x64-windows
 
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
           echo "✓ Dependencies installed with minimal features"
+
+          # Progressive cleanup - remove build artifacts to free disk space
+          Write-Host "`n=== Cleaning up vcpkg intermediate files ==="
+          $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+
+          Write-Host "Disk space before vcpkg cleanup:"
+          Get-PSDrive C | Select-Object Free | Format-Table
+
+          # Remove buildtrees (largest space consumer after builds complete)
+          if (Test-Path "$vcpkgRoot\buildtrees") {
+            Write-Host "Removing buildtrees directory..."
+            Remove-Item -Path "$vcpkgRoot\buildtrees" -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          # Remove downloads/*.tmp files (incomplete downloads)
+          if (Test-Path "$vcpkgRoot\downloads") {
+            Write-Host "Removing temporary download files..."
+            Remove-Item -Path "$vcpkgRoot\downloads\*.tmp" -Force -ErrorAction SilentlyContinue
+          }
+
+          Write-Host "Disk space after vcpkg cleanup:"
+          Get-PSDrive C | Select-Object Free | Format-Table
+
+          $freeGB = [math]::Round((Get-PSDrive C).Free / 1GB, 2)
+          Write-Host "✓ vcpkg cleanup complete - $freeGB GB free"
 
       - name: Set up dependencies (Linux)
         if: runner.os == 'Linux'
@@ -252,9 +375,11 @@ jobs:
         shell: bash
         run: |
           if [ "${{ runner.os }}" = "Windows" ]; then
+            # Windows: Use vcpkg for non-Qt dependencies, prebuilt Qt from aqtinstall
             cmake -B build \
               -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
               -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install \
+              -DCMAKE_PREFIX_PATH="C:/Qt/6.9.1/msvc2019_64" \
               -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake \
               -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }} \
               -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }}
