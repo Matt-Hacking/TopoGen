@@ -295,6 +295,12 @@ jobs:
           brew update
           brew install cmake gdal cgal eigen tbb libomp qt@6
 
+      - name: Setup MSVC Developer Environment (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Set up dependencies (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
