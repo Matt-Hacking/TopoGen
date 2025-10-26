@@ -429,15 +429,6 @@ jobs:
             --cli build/topo-gen \
             --output-dir dist/macos-deps
 
-      - name: Bundle dependencies (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          ./packaging/windows/bundle_deps.sh \
-            --cli \
-            --output-dir dist/windows-deps \
-            build/Release/topo-gen.exe
-
       - name: Bundle dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
