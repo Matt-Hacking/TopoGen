@@ -39,6 +39,7 @@ Options:
     --maintainer NAME       Maintainer name and email
     --no-cli                Don't include CLI executable
     --no-gui                Don't include GUI application
+    --source-rpm            Generate source RPM package (.src.rpm)
     --help                  Show this help message
 
 Installation Locations:
@@ -89,6 +90,7 @@ ARCHITECTURE="x86_64"
 MAINTAINER="Matthew Block <matthew@example.com>"
 INCLUDE_CLI=true
 INCLUDE_GUI=true
+CREATE_SOURCE=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -127,6 +129,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --no-gui)
             INCLUDE_GUI=false
+            shift
+            ;;
+        --source-rpm)
+            CREATE_SOURCE=true
             shift
             ;;
         --help)
@@ -200,6 +206,7 @@ mkdir -p "$BUILDROOT/opt/topo-gen/lib"
 mkdir -p "$BUILDROOT/opt/topo-gen/share/gdal"
 mkdir -p "$BUILDROOT/usr/share/applications"
 mkdir -p "$BUILDROOT/usr/share/icons/hicolor/256x256/apps"
+mkdir -p "$BUILDROOT/usr/share/man/man1"
 mkdir -p "$BUILDROOT/etc/profile.d"
 
 log_info "Staging package contents..."
@@ -272,6 +279,27 @@ EOF
     log_success "Created GUI wrapper script"
 fi
 
+# Copy and compress man pages
+log_info "Installing man pages..."
+MAN_SOURCE_DIR="$PROJECT_ROOT/docs/man"
+if [[ -f "$MAN_SOURCE_DIR/topo-gen.1" && "$INCLUDE_CLI" == true ]]; then
+    gzip -c "$MAN_SOURCE_DIR/topo-gen.1" > "$BUILDROOT/usr/share/man/man1/topo-gen.1.gz"
+    chmod 644 "$BUILDROOT/usr/share/man/man1/topo-gen.1.gz"
+    log_success "Installed CLI man page"
+else
+    log_warning "CLI man page not found: $MAN_SOURCE_DIR/topo-gen.1"
+fi
+
+if [[ -f "$MAN_SOURCE_DIR/topo-gen-gui.1" && "$INCLUDE_GUI" == true ]]; then
+    gzip -c "$MAN_SOURCE_DIR/topo-gen-gui.1" > "$BUILDROOT/usr/share/man/man1/topo-gen-gui.1.gz"
+    chmod 644 "$BUILDROOT/usr/share/man/man1/topo-gen-gui.1.gz"
+    log_success "Installed GUI man page"
+else
+    if [[ "$INCLUDE_GUI" == true ]]; then
+        log_warning "GUI man page not found: $MAN_SOURCE_DIR/topo-gen-gui.1"
+    fi
+fi
+
 # Create environment file
 cat > "$BUILDROOT/etc/profile.d/topo-gen.sh" << 'EOF'
 # Topographic Generator environment variables
@@ -330,7 +358,10 @@ EOF
 
 # Add file list based on what's included
 if [[ "$INCLUDE_CLI" == true ]]; then
-    echo "/usr/local/bin/topo-gen" >> "$RPMBUILD_DIR/SPECS/topo-gen.spec"
+    cat >> "$RPMBUILD_DIR/SPECS/topo-gen.spec" << 'EOF'
+/usr/local/bin/topo-gen
+/usr/share/man/man1/topo-gen.1.gz
+EOF
 fi
 
 if [[ "$INCLUDE_GUI" == true ]]; then
@@ -338,6 +369,7 @@ if [[ "$INCLUDE_GUI" == true ]]; then
 /usr/local/bin/topo-gen-gui
 /opt/topo-gen/topo-gen-gui
 /usr/share/applications/topo-gen.desktop
+/usr/share/man/man1/topo-gen-gui.1.gz
 EOF
 fi
 
@@ -357,6 +389,11 @@ if command -v gtk-update-icon-cache &> /dev/null; then
     gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor 2>/dev/null || :
 fi
 
+# Update man page database
+if command -v mandb &> /dev/null; then
+    mandb -q 2>/dev/null || :
+fi
+
 echo "Topographic Generator installed successfully"
 echo "Run 'topo-gen --help' to get started"
 
@@ -369,6 +406,11 @@ fi
 # Update icon cache on removal
 if command -v gtk-update-icon-cache &> /dev/null; then
     gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor 2>/dev/null || :
+fi
+
+# Update man page database on removal
+if command -v mandb &> /dev/null; then
+    mandb -q 2>/dev/null || :
 fi
 
 %changelog
@@ -430,4 +472,144 @@ if [[ -f "$RPM_FILE" ]]; then
 else
     log_error "Failed to create RPM package"
     exit 1
+fi
+
+# Generate source RPM if requested
+if [[ "$CREATE_SOURCE" == true ]]; then
+    echo ""
+    log_info "Creating RPM source package..."
+
+    # Create source package directory structure
+    SRC_TEMP_DIR=$(mktemp -d)
+    SRC_RPMBUILD_DIR="$SRC_TEMP_DIR/rpmbuild"
+
+    mkdir -p "$SRC_RPMBUILD_DIR"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+
+    # Create source tarball from git or manual copy
+    log_info "Creating upstream source tarball..."
+
+    if command -v git &> /dev/null && [[ -d "$PROJECT_ROOT/.git" ]]; then
+        # Use git archive for clean source
+        git -C "$PROJECT_ROOT" archive --format=tar --prefix="topo-gen-$VERSION/" HEAD | gzip > "$SRC_RPMBUILD_DIR/SOURCES/topo-gen-$VERSION.tar.gz"
+        log_success "Created source tarball from git"
+    else
+        # Manual copy
+        MANUAL_TEMP=$(mktemp -d)
+        mkdir -p "$MANUAL_TEMP/topo-gen-$VERSION"
+        log_info "Copying source files..."
+        cp -r "$PROJECT_ROOT"/{src,include,docs,scripts,CMakeLists.txt,vcpkg.json,LICENSE,COPYRIGHT,README.md} "$MANUAL_TEMP/topo-gen-$VERSION/" 2>/dev/null || true
+        cd "$MANUAL_TEMP"
+        tar -czf "$SRC_RPMBUILD_DIR/SOURCES/topo-gen-$VERSION.tar.gz" "topo-gen-$VERSION"
+        cd "$PROJECT_ROOT"
+        rm -rf "$MANUAL_TEMP"
+        log_success "Created source tarball from source tree"
+    fi
+
+    # Create source RPM spec file
+    log_info "Creating source RPM spec file..."
+
+    cat > "$SRC_RPMBUILD_DIR/SPECS/topo-gen.spec" << EOF
+Name:           topo-gen
+Version:        $VERSION
+Release:        1%{?dist}
+Summary:        High-performance topographic model generator
+License:        MIT
+URL:            https://github.com/matthewblock/topo-gen
+Source0:        %{name}-%{version}.tar.gz
+
+BuildRequires:  cmake >= 3.20
+BuildRequires:  gcc-c++ >= 10
+BuildRequires:  gdal-devel
+BuildRequires:  eigen3-devel
+BuildRequires:  tbb-devel
+BuildRequires:  freetype-devel
+BuildRequires:  libcurl-devel
+BuildRequires:  openssl-devel
+BuildRequires:  zlib-devel
+BuildRequires:  gmp-devel
+BuildRequires:  mpfr-devel
+
+Requires:       glibc >= 2.31
+Requires:       libstdc++ >= 10
+Requires:       gdal-libs
+Requires:       tbb
+
+%description
+Topographic Generator creates laser-cuttable topographic models from
+elevation data. It supports SRTM elevation tiles, contour generation,
+and exports to SVG (laser cutting) and STL (3D printing).
+
+Features:
+ - High-performance C++ implementation with CGAL geometry processing
+ - Automatic SRTM elevation data downloading
+ - Contour polygon generation and simplification
+ - OpenStreetMap feature integration (roads, buildings, waterways)
+ - Multi-format export (SVG, STL, GeoJSON, Shapefile)
+ - Command-line interface and GUI application
+
+%prep
+%setup -q
+
+%build
+mkdir -p build
+cd build
+%cmake .. -DCMAKE_BUILD_TYPE=Release
+%make_build
+
+%install
+cd build
+%make_install
+
+# Install man pages
+mkdir -p %{buildroot}%{_mandir}/man1
+gzip -c %{_builddir}/%{name}-%{version}/docs/man/topo-gen.1 > %{buildroot}%{_mandir}/man1/topo-gen.1.gz
+gzip -c %{_builddir}/%{name}-%{version}/docs/man/topo-gen-gui.1 > %{buildroot}%{_mandir}/man1/topo-gen-gui.1.gz
+
+%files
+%license LICENSE
+%doc README.md COPYRIGHT
+%{_bindir}/topo-gen
+%{_bindir}/topo-gen-gui
+%{_mandir}/man1/topo-gen.1.gz
+%{_mandir}/man1/topo-gen-gui.1.gz
+
+%post
+# Update man page database
+if command -v mandb &> /dev/null; then
+    mandb -q 2>/dev/null || :
+fi
+
+%postun
+# Update man page database on removal
+if command -v mandb &> /dev/null; then
+    mandb -q 2>/dev/null || :
+fi
+
+%changelog
+* $(date "+%a %b %d %Y") $MAINTAINER - $VERSION-1
+- Initial RPM source package
+EOF
+
+    log_success "Created source RPM spec file"
+
+    # Build source RPM
+    log_info "Building source RPM with rpmbuild -bs..."
+
+    rpmbuild --define "_topdir $SRC_RPMBUILD_DIR" \
+             -bs "$SRC_RPMBUILD_DIR/SPECS/topo-gen.spec"
+
+    # Move source RPM to output directory
+    mv "$SRC_RPMBUILD_DIR/SRPMS"/*.src.rpm "$OUTPUT_DIR/" 2>/dev/null || true
+
+    # Clean up
+    rm -rf "$SRC_TEMP_DIR"
+
+    echo ""
+    log_success "RPM source package created successfully!"
+    log_info "Source package file:"
+    ls -lh "$OUTPUT_DIR"/topo-gen-${VERSION}*.src.rpm | awk '{print "  " $9, "(" $5 ")"}'
+    echo ""
+    log_info "To build binary RPM from source:"
+    echo "  rpmbuild --rebuild $OUTPUT_DIR/topo-gen-${VERSION}-1.*.src.rpm"
+    echo ""
 fi

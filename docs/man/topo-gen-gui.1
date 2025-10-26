@@ -1,0 +1,345 @@
+.TH TOPO-GEN-GUI 1 "2025-01-26" "Topographic Generator 0.1.0" "User Commands"
+.SH NAME
+topo-gen-gui \- graphical user interface for topographic model generation
+.SH SYNOPSIS
+.B topo-gen-gui
+[\fIFILE\fR]
+.SH DESCRIPTION
+.B topo-gen-gui
+is a graphical user interface for the Topographic Generator tool. It provides an intuitive, visual way to configure and generate laser-cuttable topographic contour maps and 3D models from SRTM elevation data.
+.PP
+The GUI provides:
+.IP \(bu 3
+Interactive map-based geographic area selection
+.IP \(bu
+Real-time preview of layer configuration and dimensions
+.IP \(bu
+Visual parameter adjustment with immediate feedback
+.IP \(bu
+Integrated 3D model preview
+.IP \(bu
+Progress tracking for long-running operations
+.IP \(bu
+Configuration file management (save/load presets)
+.IP \(bu
+Integrated OpenStreetMap feature selection (roads, buildings, waterways)
+.PP
+The GUI wraps the same high-performance C++ engine as
+.BR topo-gen (1),
+providing identical output quality with a more accessible interface.
+.SH OPTIONS
+.TP
+.I FILE
+Optional JSON configuration file to load on startup
+.SH INTERFACE OVERVIEW
+The GUI is organized into several main sections:
+.SS Geographic Selection Panel
+.TP
+.B Map View
+Interactive map powered by OpenStreetMap for visual area selection
+.TP
+.B Coordinate Entry
+Manual entry of upper-left and lower-right coordinates
+.TP
+.B Location Search
+Geocoding search using OpenStreetMap Nominatim (e.g., "Mount Rainier")
+.TP
+.B Quick Presets
+Pre-configured areas for common locations
+.SS Layer Configuration Panel
+.TP
+.B Layer Count
+Number of layers to generate (affects model detail and material cost)
+.TP
+.B Height per Layer
+Vertical elevation represented by each layer
+.TP
+.B Layer Thickness
+Physical thickness of laser-cutting material
+.TP
+.B Substrate Size
+Dimensions of cutting material or 3D print bed
+.TP
+.B Preview
+Real-time visualization of layer stack and dimensions
+.SS Processing Options Panel
+.TP
+.B Simplification
+Geometry simplification tolerance (reduces file size)
+.TP
+.B Smoothing
+Number of smoothing iterations (reduces jagged contours)
+.TP
+.B Minimum Feature Size
+Remove features below specified area or width
+.TP
+.B Quality Setting
+Overall mesh quality: Draft, Medium, High, Ultra
+.SS Features Panel
+.TP
+.B Roads
+Include OpenStreetMap road data with configurable detail level
+.TP
+.B Buildings
+Include building footprints from OpenStreetMap
+.TP
+.B Waterways
+Include rivers, streams, and water bodies
+.TP
+.B Feature Preview
+Visual preview of selected features overlaid on terrain
+.SS Output Configuration Panel
+.TP
+.B Output Formats
+Select output formats: SVG, STL, OBJ, PLY
+.TP
+.B Layer Generation
+Choose individual layers, stacked model, or both
+.TP
+.B Output Directory
+Destination for generated files
+.TP
+.B Naming Pattern
+Customize output filenames with pattern substitution
+.SS Labeling Panel
+.TP
+.B Visible Labels
+Labels that remain visible after model assembly (placed in corners)
+.TP
+.B Hidden Labels
+Labels covered by next layer when stacked (placed in center)
+.TP
+.B Label Patterns
+Pattern-based label generation with variable substitution
+.TP
+.B Font and Size
+Typography controls for label appearance
+.SS Advanced Settings
+.TP
+.B Scaling Methods
+Configure 2D and 3D scaling algorithms
+.TP
+.B Registration Marks
+Add alignment marks or physical registration holes
+.TP
+.B Orientation
+Control layer printing direction (upside-down or right-side-up)
+.TP
+.B Geometry Debugging
+Enable pathology detection and diagnostic output
+.SS Generation and Progress
+.TP
+.B Generate Button
+Start the generation process
+.TP
+.B Progress Bar
+Real-time progress tracking with stage information
+.TP
+.B Cancel Button
+Abort long-running operations
+.TP
+.B Log View
+Detailed logging output with filtering by severity
+.SH WORKFLOW
+A typical workflow in the GUI:
+.IP 1. 4
+Select geographic area using map or search
+.IP 2.
+Configure number of layers and material dimensions
+.IP 3.
+Choose output formats (SVG for laser cutting, STL for 3D printing)
+.IP 4.
+Optionally add roads, buildings, or waterways
+.IP 5.
+Adjust labels, registration marks, and advanced options
+.IP 6.
+Preview configuration and estimated dimensions
+.IP 7.
+Click Generate to start processing
+.IP 8.
+Monitor progress and view logs
+.IP 9.
+Save configuration for future reuse
+.SH KEYBOARD SHORTCUTS
+.TP
+.B Ctrl+O
+Open configuration file
+.TP
+.B Ctrl+S
+Save current configuration
+.TP
+.B Ctrl+Shift+S
+Save configuration as...
+.TP
+.B Ctrl+G
+Start generation
+.TP
+.B Esc
+Cancel generation
+.TP
+.B Ctrl+Q
+Quit application
+.TP
+.B F11
+Toggle fullscreen mode
+.TP
+.B Ctrl++
+Zoom in map view
+.TP
+.B Ctrl+-
+Zoom out map view
+.TP
+.B Ctrl+0
+Reset map zoom
+.SH CONFIGURATION FILES
+The GUI can save and load configuration files in JSON format. These files are compatible with the command-line
+.BR topo-gen (1)
+tool, allowing seamless workflow integration.
+.PP
+Configuration files include all parameters: geographic bounds, layer settings, processing options, feature selections, labeling, and output preferences.
+.SS Configuration File Locations
+.TP
+.I ~/Documents/TopoGen/configs/
+Default configuration save location (Linux/Unix)
+.TP
+.I ~/Library/Application Support/TopoGen/configs/
+Default configuration save location (macOS)
+.TP
+.I %APPDATA%\\TopoGen\\configs\\
+Default configuration save location (Windows)
+.SH EXAMPLES
+.TP
+.B Launch GUI and load saved configuration:
+topo-gen-gui ~/Documents/mount-rainier.json
+.TP
+.B Launch GUI with default settings:
+topo-gen-gui
+.SH FILES
+.TP
+.I ~/.cache/topo-gen/srtm/
+SRTM elevation tile cache directory
+.TP
+.I ~/.cache/topo-gen/osm/
+OpenStreetMap feature cache directory
+.TP
+.I ~/.config/topo-gen/
+User preferences and recent files (Linux/Unix)
+.TP
+.I ~/Library/Preferences/com.topogen.TopoGen.plist
+User preferences (macOS)
+.TP
+.I %APPDATA%\\TopoGen\\settings.ini
+User preferences (Windows)
+.SH ENVIRONMENT
+.TP
+.B SRTM_CACHE_DIR
+Override default SRTM tile cache location
+.TP
+.B OSM_CACHE_DIR
+Override default OpenStreetMap cache location
+.TP
+.B QT_SCALE_FACTOR
+Override UI scaling factor for high-DPI displays
+.SH SYSTEM REQUIREMENTS
+.SS Minimum Requirements
+.TP
+.B Processor
+Dual-core CPU (Intel Core i3 or equivalent)
+.TP
+.B Memory
+4 GB RAM
+.TP
+.B Graphics
+OpenGL 3.3 or higher for 3D preview
+.TP
+.B Storage
+500 MB free disk space plus cache
+.TP
+.B Network
+Internet connection for downloading elevation and feature data
+.SS Recommended Requirements
+.TP
+.B Processor
+Quad-core CPU (Intel Core i5/i7, AMD Ryzen 5/7, or equivalent)
+.TP
+.B Memory
+8 GB RAM or more
+.TP
+.B Graphics
+Dedicated GPU with OpenGL 4.5+ for smooth 3D preview
+.TP
+.B Storage
+2 GB free disk space
+.SH PERFORMANCE NOTES
+.PP
+Generation time varies based on:
+.IP \(bu 3
+Geographic area size (larger areas require more processing)
+.IP \(bu
+Number of layers (more layers = more computation)
+.IP \(bu
+Quality settings (Ultra quality is significantly slower than Draft)
+.IP \(bu
+Feature inclusion (roads, buildings, waterways add processing overhead)
+.IP \(bu
+System specifications (CPU cores, RAM availability)
+.PP
+Typical generation times on modern hardware:
+.IP \(bu
+Small area (5×5 miles), 7 layers, medium quality: 30-60 seconds
+.IP \(bu
+Medium area (15×15 miles), 10 layers, high quality: 2-5 minutes
+.IP \(bu
+Large area (30×30 miles), 15 layers, ultra quality: 10-30 minutes
+.PP
+The GUI provides real-time progress updates and allows cancellation of long-running operations.
+.SH DIAGNOSTICS
+The GUI provides detailed logging in the Log View panel. Log levels can be adjusted:
+.IP \(bu 3
+ERROR: Critical failures only
+.IP \(bu
+WARNING: Potential issues
+.IP \(bu
+INFO: General progress information (default)
+.IP \(bu
+DETAILED: Detailed operation descriptions
+.IP \(bu
+DEBUG: Internal state information
+.IP \(bu
+TRACE: Verbose diagnostic output
+.PP
+Logs can be saved to file for troubleshooting or bug reports.
+.SH BUGS
+Report bugs to: https://github.com/matthewblock/topo-gen/issues
+.PP
+When reporting GUI issues, please include:
+.IP \(bu 3
+Operating system and version
+.IP \(bu
+Configuration file (if applicable)
+.IP \(bu
+Log output at DEBUG or TRACE level
+.IP \(bu
+Steps to reproduce the issue
+.SH AUTHOR
+Written by Matthew Block.
+.PP
+Core functionality adapted from laser_slicer by Boris Legradic.
+.br
+High-performance geometry processing algorithms adapted from Bambu Slicer (libslic3r).
+.br
+GUI built with Qt 6 framework.
+.SH COPYRIGHT
+Copyright \(co 2025 Matthew Block. Licensed under the MIT License.
+.PP
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+.SH SEE ALSO
+.BR topo-gen (1),
+.BR gdal_contour (1),
+.BR gdalinfo (1)
+.PP
+Full documentation: https://github.com/matthewblock/topo-gen
+.PP
+For command-line usage and automation, see
+.BR topo-gen (1).

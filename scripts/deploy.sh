@@ -194,6 +194,8 @@ Package Format Options:
     --portable-zip      Create portable Windows ZIP package
     --deb               Create Debian/Ubuntu DEB package
     --rpm               Create Fedora/RHEL RPM package
+    --source-deb        Create Debian source package (.dsc, .debian.tar.xz, .orig.tar.gz)
+    --source-rpm        Create RPM source package (.src.rpm)
     --flatpak           Generate Flatpak manifest
     --appimage          Create AppImage portable package
     --platform PLATFORM Target platform: macos, linux, windows, source
@@ -271,6 +273,8 @@ CREATE_WINGET=false
 CREATE_PORTABLE_ZIP=false
 CREATE_DEB=false
 CREATE_RPM=false
+CREATE_SOURCE_DEB=false
+CREATE_SOURCE_RPM=false
 CREATE_FLATPAK=false
 CREATE_APPIMAGE=false
 CLEAN_BUILD=false
@@ -321,6 +325,14 @@ while [[ $# -gt 0 ]]; do
             CREATE_RPM=true
             shift
             ;;
+        --source-deb)
+            CREATE_SOURCE_DEB=true
+            shift
+            ;;
+        --source-rpm)
+            CREATE_SOURCE_RPM=true
+            shift
+            ;;
         --flatpak)
             CREATE_FLATPAK=true
             shift
@@ -359,6 +371,8 @@ while [[ $# -gt 0 ]]; do
             CREATE_BINARY=true
             CREATE_DEB=true
             CREATE_RPM=true
+            CREATE_SOURCE_DEB=true
+            CREATE_SOURCE_RPM=true
             CREATE_FLATPAK=true
             CREATE_APPIMAGE=true
             shift
@@ -822,32 +836,72 @@ if [[ "$CREATE_PORTABLE_ZIP" == true ]]; then
 fi
 
 # Create DEB package (Linux)
-if [[ "$CREATE_DEB" == true ]]; then
-    log_info "Creating DEB package..."
+if [[ "$CREATE_DEB" == true || "$CREATE_SOURCE_DEB" == true ]]; then
+    if [[ "$CREATE_DEB" == true ]]; then
+        log_info "Creating DEB package..."
+    fi
     DEB_SCRIPT="$SCRIPT_DIR/package/create-deb.sh"
     DEPS_DIR="$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}/topo-gen-${VERSION}/lib"
     [[ ! -d "$DEPS_DIR" ]] && DEPS_DIR="dist/linux-deps"
 
-    if [[ -d "$DEPS_DIR" && -x "$DEB_SCRIPT" ]]; then
-        "$DEB_SCRIPT" --deps-dir "$DEPS_DIR" --version "$VERSION" --output-dir "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"
-        log_success "DEB package created"
-    else
-        log_warning "Cannot create DEB (missing dependencies or script)"
+    DEB_CMD=("$DEB_SCRIPT" --version "$VERSION" --output-dir "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}")
+
+    if [[ "$CREATE_DEB" == true ]]; then
+        if [[ -d "$DEPS_DIR" ]]; then
+            DEB_CMD+=(--deps-dir "$DEPS_DIR")
+        else
+            log_warning "Dependencies directory not found, skipping binary DEB"
+            CREATE_DEB=false
+        fi
+    fi
+
+    if [[ "$CREATE_SOURCE_DEB" == true ]]; then
+        DEB_CMD+=(--source-deb)
+    fi
+
+    if [[ "$CREATE_DEB" == true || "$CREATE_SOURCE_DEB" == true ]]; then
+        if [[ -x "$DEB_SCRIPT" ]]; then
+            "${DEB_CMD[@]}"
+            [[ "$CREATE_DEB" == true ]] && log_success "DEB package created"
+            [[ "$CREATE_SOURCE_DEB" == true ]] && log_success "Source DEB created"
+        else
+            log_warning "DEB script not found or not executable"
+        fi
     fi
 fi
 
 # Create RPM package (Linux)
-if [[ "$CREATE_RPM" == true ]]; then
-    log_info "Creating RPM package..."
+if [[ "$CREATE_RPM" == true || "$CREATE_SOURCE_RPM" == true ]]; then
+    if [[ "$CREATE_RPM" == true ]]; then
+        log_info "Creating RPM package..."
+    fi
     RPM_SCRIPT="$SCRIPT_DIR/package/create-rpm.sh"
     DEPS_DIR="$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}/topo-gen-${VERSION}/lib"
     [[ ! -d "$DEPS_DIR" ]] && DEPS_DIR="dist/linux-deps"
 
-    if [[ -d "$DEPS_DIR" && -x "$RPM_SCRIPT" ]]; then
-        "$RPM_SCRIPT" --deps-dir "$DEPS_DIR" --version "$VERSION" --output-dir "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}"
-        log_success "RPM package created"
-    else
-        log_warning "Cannot create RPM (missing dependencies or script)"
+    RPM_CMD=("$RPM_SCRIPT" --version "$VERSION" --output-dir "$OUTPUT_DIR/${TARGET_PLATFORM}-${ARCHITECTURE}")
+
+    if [[ "$CREATE_RPM" == true ]]; then
+        if [[ -d "$DEPS_DIR" ]]; then
+            RPM_CMD+=(--deps-dir "$DEPS_DIR")
+        else
+            log_warning "Dependencies directory not found, skipping binary RPM"
+            CREATE_RPM=false
+        fi
+    fi
+
+    if [[ "$CREATE_SOURCE_RPM" == true ]]; then
+        RPM_CMD+=(--source-rpm)
+    fi
+
+    if [[ "$CREATE_RPM" == true || "$CREATE_SOURCE_RPM" == true ]]; then
+        if [[ -x "$RPM_SCRIPT" ]]; then
+            "${RPM_CMD[@]}"
+            [[ "$CREATE_RPM" == true ]] && log_success "RPM package created"
+            [[ "$CREATE_SOURCE_RPM" == true ]] && log_success "Source RPM created"
+        else
+            log_warning "RPM script not found or not executable"
+        fi
     fi
 fi
 

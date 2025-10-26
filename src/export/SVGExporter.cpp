@@ -1064,7 +1064,7 @@ void SVGExporter::ensure_output_directory() const {
 }
 
 std::string SVGExporter::get_output_path(const std::string& filename) const {
-    return std::filesystem::path(config_.output_directory) / filename;
+    return (std::filesystem::path(config_.output_directory) / filename).string();
 }
 
 } // namespace topo

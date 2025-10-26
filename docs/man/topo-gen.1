@@ -1,0 +1,431 @@
+.TH TOPO-GEN 1 "2025-01-26" "Topographic Generator 0.1.0" "User Commands"
+.SH NAME
+topo-gen \- generate laser-cuttable contour maps and 3D models from elevation data
+.SH SYNOPSIS
+.B topo-gen
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+.B topo-gen
+is a high-performance C++ tool for generating laser-cuttable topographic contour maps and 3D models from SRTM elevation data. It supports multiple output formats including SVG (for laser cutting), STL/OBJ/PLY (for 3D printing), and includes features for automatic label placement, road/building/waterway integration from OpenStreetMap, and advanced geometry processing.
+.PP
+The tool downloads SRTM elevation tiles automatically, processes the digital elevation model, generates contour polygons using GDAL, and exports them in user-specified formats optimized for manufacturing.
+.PP
+Default area: Mount Denali, Alaska (11.1 × 11.1 mile region)
+.SH OPTIONS
+.SS Configuration
+.TP
+.BR \-c ", " \-\-config " \fIPATH\fR"
+Path to JSON configuration file
+.TP
+.BR \-\-create-config " \fIPATH\fR"
+Create default configuration file at specified path and exit
+.SS Geographic Bounds
+.TP
+.BR \-\-upper-left " \fILAT,LON\fR"
+Upper left corner coordinates (e.g., 63.12,-151.10)
+.TP
+.BR \-\-lower-right " \fILAT,LON\fR"
+Lower right corner coordinates (e.g., 63.02,-150.90)
+.TP
+.BR \-q ", " \-\-query " \fIPLACE_NAME\fR"
+Place name or location query (uses OpenStreetMap Nominatim geocoding)
+.SS Output Options
+.TP
+.BR \-\-base-name " \fINAME\fR"
+Base name for output files (default: mount_denali)
+.TP
+.BR \-\-filename " \fIPATTERN\fR"
+Filename pattern with substitutions: %{b}=base name, %{l}=layer number (zero-padded), %{e}=elevation, %{n}=layer number (default: %{b}-%{l})
+.TP
+.BR \-\-output-dir ", " \-\-output-path " \fIDIR\fR"
+Output directory (default: output)
+.TP
+.BR \-\-output-formats ", " \-\-output-format " \fIFORMATS\fR"
+Comma-separated output formats: svg, stl, obj, ply (default: svg)
+.TP
+.BR \-\-output-layers
+Generate individual layer files (default)
+.TP
+.BR \-\-no-output-layers
+Do not generate individual layer files
+.TP
+.BR \-\-output-stacked
+Generate single 3D stacked model
+.TP
+.BR \-\-no-output-stacked
+Do not generate stacked model (default)
+.SS Layer Options
+.TP
+.BR \-\-num-layers " \fIN\fR"
+Number of contour layers to generate (default: 7)
+.TP
+.BR \-\-height-per-layer " \fIMETERS\fR"
+Height of each layer in meters (default: 21.43)
+.TP
+.BR \-\-contour-interval " \fIMETERS\fR"
+Contour spacing for SVG export in meters (default: 100.0)
+.TP
+.BR \-\-layer-thickness " \fIMM\fR"
+Thickness of each layer in millimeters (default: 3.0)
+.TP
+.BR \-\-substrate-size " \fIMM\fR"
+Size of the substrate in millimeters (default: 200.0)
+.TP
+.BR \-\-substrate-depth " \fIMM\fR"
+Total depth/height of substrate material stack in millimeters
+.TP
+.BR \-\-force-all-layers
+Generate all layers even if empty
+.TP
+.BR \-\-no-force-all-layers
+Skip empty layers (default)
+.TP
+.BR \-\-layer-list " \fILIST\fR"
+Generate only specified layers (e.g., 3,4,5-7,11)
+.SS Cutting Bed Dimensions
+.TP
+.BR \-\-cutting-bed-size " \fISIZE\fR"
+Size of cutting bed: single value (square) or X,Y dimensions
+.TP
+.BR \-\-cutting-bed-x " \fIMM\fR"
+X-axis dimension of cutting bed in millimeters
+.TP
+.BR \-\-cutting-bed-y " \fIMM\fR"
+Y-axis dimension of cutting bed in millimeters
+.SS Processing Options
+.TP
+.BR \-\-simplify " \fITOLERANCE\fR"
+Simplification tolerance in meters (default: 1.0)
+.TP
+.BR \-\-smoothing " \fIITERATIONS\fR"
+Number of smoothing iterations (default: 1)
+.TP
+.BR \-\-min-area " \fISQ_METERS\fR"
+Minimum area for features in square meters (default: 100.0)
+.TP
+.BR \-\-min-feature-width " \fIMM\fR"
+Minimum feature width in millimeters (default: 2.0)
+.TP
+.BR \-\-print-resolution " \fIDPI\fR"
+Print resolution in DPI (default: 600.0)
+.TP
+.BR \-\-quality " \fILEVEL\fR"
+Mesh quality: draft, medium, high, ultra (default: medium)
+.SS Color and Rendering
+.TP
+.BR \-\-stroke-color " \fIRGB\fR"
+Stroke/border color as RGB hex (e.g., FF0000 for red, default: FF0000)
+.TP
+.BR \-\-background-color " \fIRGB\fR"
+Background color as RGB hex (e.g., FFFFFF for white, default: FFFFFF)
+.TP
+.BR \-\-stroke-width " \fIWIDTH\fR"
+Stroke width: unitless=pixels (converted via DPI), or with unit (e.g., 0.2mm, 3px, default: 3px)
+.TP
+.BR \-\-color-scheme " \fISCHEME\fR"
+Color scheme: grayscale, terrain, rainbow, topographic, hypsometric (default: terrain)
+.TP
+.BR \-\-render-mode " \fIMODE\fR"
+Render mode for 2D outputs: full-color, grayscale, monochrome (default: full-color)
+.SS Elevation Control
+.TP
+.BR \-\-min-elevation " \fIMETERS\fR"
+Minimum elevation to include in meters
+.TP
+.BR \-\-max-elevation " \fIMETERS\fR"
+Maximum elevation to include in meters
+.TP
+.BR \-\-elevation-threshold " \fIMETERS\fR"
+Elevation threshold in meters
+.SS Layer Orientation
+.TP
+.BR \-\-upside-down
+Print/cut layers upside down
+.TP
+.BR \-\-no-upside-down
+Print/cut layers right-side up (default)
+.TP
+.BR \-\-vertical-contour-relief
+Create layers with vertical sides (default)
+.TP
+.BR \-\-no-vertical-contour-relief
+Create layers following terrain shapes
+.SS Boundary and Hole Handling
+.TP
+.BR \-\-outer-boundaries-only
+Generate only outer boundaries
+.TP
+.BR \-\-no-outer-boundaries-only
+Generate full contours including holes (default)
+.TP
+.BR \-\-remove-holes
+Remove polygon holes from SVG output (simpler laser cutting, default)
+.TP
+.BR \-\-keep-holes
+Keep polygon holes in SVG output (shows valleys/depressions)
+.TP
+.BR \-\-inset-upper-layers
+Cut holes where next layer sits (reduces material, creates nesting lips)
+.TP
+.BR \-\-no-inset-upper-layers
+Solid elevation bands, no holes (default)
+.TP
+.BR \-\-inset-offset " \fIMM\fR"
+Size of nesting lip in millimeters (default: 1.0)
+.SS Feature Integration
+.TP
+.BR \-\-include-roads
+Include road features from OpenStreetMap
+.TP
+.BR \-\-no-include-roads
+Do not include roads
+.TP
+.BR \-\-include-buildings
+Include building features from OpenStreetMap
+.TP
+.BR \-\-no-include-buildings
+Do not include buildings
+.TP
+.BR \-\-include-waterways
+Include waterway features from OpenStreetMap
+.TP
+.BR \-\-no-include-waterways
+Do not include waterways
+.SS Registration Marks and Numbers
+.TP
+.BR \-\-include-layer-numbers
+Add layer numbers (default)
+.TP
+.BR \-\-no-include-layer-numbers
+Do not add layer numbers
+.TP
+.BR \-\-add-registration-marks
+Add registration marks (default)
+.TP
+.BR \-\-no-add-registration-marks
+Do not add registration marks
+.TP
+.BR \-\-add-physical-registration
+Add physical registration holes
+.TP
+.BR \-\-no-add-physical-registration
+Do not add physical holes (default)
+.TP
+.BR \-\-physical-registration-hole-diameter " \fIMM\fR"
+Hole diameter in millimeters (default: 1.0)
+.TP
+.BR \-\-add-base-layer
+Add an extra base layer
+.TP
+.BR \-\-no-add-base-layer
+Do not add base layer (default)
+.SS Labeling
+Labels support pattern substitution with the following variables:
+.br
+  %{s}  = Scale ratio (e.g., "25000" for 1:25000)
+.br
+  %{c}  = Contour height in meters
+.br
+  %{n}  = Layer number
+.br
+  %{l}  = Layer number (zero-padded to 2 digits)
+.br
+  %{e}  = Elevation in meters
+.br
+  %{x}  = Center longitude
+.br
+  %{y}  = Center latitude
+.br
+  %{w}  = Area width (formatted)
+.br
+  %{h}  = Area height (formatted)
+.br
+  %{W}  = Substrate width (formatted)
+.br
+  %{H}  = Substrate height (formatted)
+.br
+  %{C}  = Center coordinate (lat, lon)
+.br
+  %{UL} = Upper-left coordinate
+.br
+  %{UR} = Upper-right coordinate
+.br
+  %{LL} = Lower-left coordinate
+.br
+  %{LR} = Lower-right coordinate
+.TP
+.BR \-\-base-label-visible " \fIPATTERN\fR"
+Visible label on base layer (stays visible after assembly)
+.TP
+.BR \-\-base-label-hidden " \fIPATTERN\fR"
+Hidden label on base layer (covered by next layer)
+.TP
+.BR \-\-layer-label-visible " \fIPATTERN\fR"
+Visible label on each layer (stays visible after assembly)
+.TP
+.BR \-\-layer-label-hidden " \fIPATTERN\fR"
+Hidden label on each layer (covered by next layer)
+.SS Units
+.TP
+.BR \-\-label-units " \fISYSTEM\fR"
+Unit system for labels: metric or imperial (default: metric)
+.TP
+.BR \-\-print-units " \fIUNITS\fR"
+Print units: mm or inches (default: mm)
+.TP
+.BR \-\-land-units " \fIUNITS\fR"
+Land units: meters or feet (default: meters)
+.SS Scaling Methods
+.TP
+.BR \-\-2d-scaling-method " \fIMETHOD\fR"
+2D scaling method: auto, bed-size, material-thickness, layers, explicit (default: auto)
+.TP
+.BR \-\-3d-scaling-method " \fIMETHOD\fR"
+3D scaling method: auto, bed-size, print-height, uniform-xyz, explicit (default: auto)
+.TP
+.BR \-\-use-2d-scaling-for-3d
+Force 2D scaling method for 3D outputs
+.TP
+.BR \-\-use-3d-scaling-for-2d
+Force 3D scaling method for 2D outputs
+.TP
+.BR \-\-explicit-2d-scale-factor " \fIFACTOR\fR"
+Explicit 2D scale factor in mm/m
+.TP
+.BR \-\-explicit-3d-scale-factor " \fIFACTOR\fR"
+Explicit 3D scale factor in mm/m
+.SS Debugging
+.TP
+.BR \-\-debug-geometry
+Enable geometry pathology detection and SVG debugging
+.TP
+.BR \-\-debug-output-dir " \fIDIR\fR"
+Directory for debug SVG files (default: debug)
+.TP
+.BR \-\-debug-show-legend
+Include pathology legend in debug SVGs
+.SS Logging
+.TP
+.BR \-s ", " \-\-silent
+Suppress all output (same as --log-level 0)
+.TP
+.BR \-v ", " \-\-verbose
+Enable verbose logging (same as --log-level 6)
+.TP
+.BR \-\-log-level " \fILEVEL\fR"
+Logging level: 1=ERROR, 2=WARNING, 3=INFO (default), 4=DETAILED, 5=DEBUG, 6=TRACE
+.br
+Supports facility-specific levels: "3,PNGExporter=6" or "PNGExporter=6,ContourGenerator=4"
+.TP
+.BR \-\-log-file " \fIPATH\fR"
+Log to file (append if exists)
+.SS Other Options
+.TP
+.BR \-t ", " \-\-terrain-following
+Generate terrain-following surface
+.TP
+.BR \-h ", " \-\-help
+Display help message and exit
+.TP
+.BR \-\-version
+Display version information and exit
+.SH EXAMPLES
+.TP
+.B Generate SVG layers for laser cutting (default behavior):
+topo-gen
+.TP
+.B Generate STL file for 3D printing:
+topo-gen --output-formats stl
+.TP
+.B Multiple formats with custom geographic area:
+topo-gen --output-formats svg,stl --upper-left 63.12,-151.10 --lower-right 63.02,-150.90
+.TP
+.B Generate model using location name with geocoding:
+topo-gen --query "Mount Rainier, Washington" --num-layers 10
+.TP
+.B Add custom labels with pattern substitution:
+topo-gen --base-label-visible "Scale 1:%{s}" --layer-label-visible "Layer %{n}, Elev %{e}m"
+.TP
+.B Create high-quality model with roads and waterways:
+topo-gen --quality ultra --include-roads --include-waterways
+.TP
+.B Generate layers for large cutting bed with custom dimensions:
+topo-gen --cutting-bed-x 600 --cutting-bed-y 400 --num-layers 15
+.TP
+.B Create configuration file for repeated use:
+topo-gen --create-config my-model.json
+.br
+topo-gen --config my-model.json
+.SH FILES
+.TP
+.I ~/.cache/topo-gen/srtm/
+SRTM elevation tile cache directory
+.TP
+.I ~/.cache/topo-gen/osm/
+OpenStreetMap feature cache directory
+.TP
+.I output/
+Default output directory for generated files
+.TP
+.I *.json
+Configuration files containing model parameters
+.SH ENVIRONMENT
+.TP
+.B SRTM_CACHE_DIR
+Override default SRTM tile cache location
+.TP
+.B OSM_CACHE_DIR
+Override default OpenStreetMap cache location
+.SH DIAGNOSTICS
+The program exits with status 0 on success, and non-zero on error.
+.PP
+Common error codes:
+.TP
+1
+General error (invalid arguments, missing files, etc.)
+.TP
+2
+SRTM data download failed
+.TP
+3
+Geometry processing error
+.TP
+4
+Export failed (insufficient disk space, permissions, etc.)
+.SH DEPENDENCIES
+.B topo-gen
+requires the following data sources:
+.TP
+.B SRTM Elevation Data
+Downloaded automatically from NASA servers (requires internet connection)
+.TP
+.B OpenStreetMap Data
+Downloaded automatically from Overpass API when --include-roads, --include-buildings, or --include-waterways is used
+.SH NOTES
+.PP
+Coordinate systems: Input coordinates are in WGS84 (latitude/longitude). Processing uses UTM projection for accurate distance calculations. Output is in millimeters for manufacturing precision.
+.PP
+The tool automatically detects whether elevation data is already projected or in geographic coordinates to prevent invalid UTM conversions.
+.PP
+SRTM data has approximately 30-meter resolution at the equator. Very small geographic areas may have limited detail.
+.PP
+Large geographic areas or high layer counts may require significant processing time and memory.
+.SH BUGS
+Report bugs to: https://github.com/matthewblock/topo-gen/issues
+.SH AUTHOR
+Written by Matthew Block.
+.PP
+Core functionality adapted from laser_slicer by Boris Legradic.
+.br
+High-performance geometry processing algorithms adapted from Bambu Slicer (libslic3r).
+.SH COPYRIGHT
+Copyright \(co 2025 Matthew Block. Licensed under the MIT License.
+.PP
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+.SH SEE ALSO
+.BR topo-gen-gui (1),
+.BR gdal_contour (1),
+.BR gdalinfo (1)
+.PP
+Full documentation: https://github.com/matthewblock/topo-gen

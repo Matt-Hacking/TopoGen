@@ -39,6 +39,7 @@ Options:
     --maintainer NAME       Maintainer name and email
     --no-cli                Don't include CLI executable
     --no-gui                Don't include GUI application
+    --source-deb            Generate source package (.dsc, .debian.tar.xz, .orig.tar.gz)
     --help                  Show this help message
 
 Installation Locations:
@@ -89,6 +90,7 @@ ARCHITECTURE="amd64"
 MAINTAINER="Matthew Block <matthew@example.com>"
 INCLUDE_CLI=true
 INCLUDE_GUI=true
+CREATE_SOURCE=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -127,6 +129,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --no-gui)
             INCLUDE_GUI=false
+            shift
+            ;;
+        --source-deb)
+            CREATE_SOURCE=true
             shift
             ;;
         --help)
@@ -196,6 +202,7 @@ mkdir -p "$PKG_DIR/opt/topo-gen/lib"
 mkdir -p "$PKG_DIR/opt/topo-gen/share/gdal"
 mkdir -p "$PKG_DIR/usr/share/applications"
 mkdir -p "$PKG_DIR/usr/share/icons/hicolor/256x256/apps"
+mkdir -p "$PKG_DIR/usr/share/man/man1"
 
 log_info "Staging package contents..."
 
@@ -273,6 +280,27 @@ EOF
     log_success "Created GUI wrapper script"
 fi
 
+# Copy and compress man pages
+log_info "Installing man pages..."
+MAN_SOURCE_DIR="$PROJECT_ROOT/docs/man"
+if [[ -f "$MAN_SOURCE_DIR/topo-gen.1" && "$INCLUDE_CLI" == true ]]; then
+    gzip -c "$MAN_SOURCE_DIR/topo-gen.1" > "$PKG_DIR/usr/share/man/man1/topo-gen.1.gz"
+    chmod 644 "$PKG_DIR/usr/share/man/man1/topo-gen.1.gz"
+    log_success "Installed CLI man page"
+else
+    log_warning "CLI man page not found: $MAN_SOURCE_DIR/topo-gen.1"
+fi
+
+if [[ -f "$MAN_SOURCE_DIR/topo-gen-gui.1" && "$INCLUDE_GUI" == true ]]; then
+    gzip -c "$MAN_SOURCE_DIR/topo-gen-gui.1" > "$PKG_DIR/usr/share/man/man1/topo-gen-gui.1.gz"
+    chmod 644 "$PKG_DIR/usr/share/man/man1/topo-gen-gui.1.gz"
+    log_success "Installed GUI man page"
+else
+    if [[ "$INCLUDE_GUI" == true ]]; then
+        log_warning "GUI man page not found: $MAN_SOURCE_DIR/topo-gen-gui.1"
+    fi
+fi
+
 # Create control file
 log_info "Creating control file..."
 
@@ -323,6 +351,11 @@ fi
 # Update icon cache
 if command -v gtk-update-icon-cache &> /dev/null; then
     gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor 2>/dev/null || true
+fi
+
+# Update man page database
+if command -v mandb &> /dev/null; then
+    mandb -q 2>/dev/null || true
 fi
 
 # Create environment file
@@ -377,6 +410,11 @@ if command -v gtk-update-icon-cache &> /dev/null; then
     gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor 2>/dev/null || true
 fi
 
+# Update man page database
+if command -v mandb &> /dev/null; then
+    mandb -q 2>/dev/null || true
+fi
+
 exit 0
 EOF
 
@@ -429,4 +467,146 @@ if [[ -f "$DEB_FILE" ]]; then
 else
     log_error "Failed to create DEB package"
     exit 1
+fi
+
+# Generate source package if requested
+if [[ "$CREATE_SOURCE" == true ]]; then
+    echo ""
+    log_info "Creating Debian source package..."
+
+    # Check for required tools
+    if ! command -v dpkg-source &> /dev/null; then
+        log_error "dpkg-source not found (required for source package creation)"
+        log_info "Install with: sudo apt-get install dpkg-dev"
+        exit 1
+    fi
+
+    # Create source package directory
+    SRC_TEMP_DIR=$(mktemp -d)
+    SRC_NAME="topo-gen-$VERSION"
+    SRC_DIR="$SRC_TEMP_DIR/$SRC_NAME"
+
+    # Create orig tarball from git or manual copy
+    log_info "Creating upstream source tarball..."
+
+    if command -v git &> /dev/null && [[ -d "$PROJECT_ROOT/.git" ]]; then
+        # Use git archive for clean source
+        git -C "$PROJECT_ROOT" archive --format=tar --prefix="${SRC_NAME}/" HEAD | gzip > "$OUTPUT_DIR/topo-gen_${VERSION}.orig.tar.gz"
+        log_success "Created orig.tar.gz from git"
+    else
+        # Manual copy
+        mkdir -p "$SRC_DIR"
+        log_info "Copying source files..."
+        cp -r "$PROJECT_ROOT"/{src,include,docs,scripts,CMakeLists.txt,vcpkg.json,LICENSE,COPYRIGHT,README.md} "$SRC_DIR/" 2>/dev/null || true
+        cd "$SRC_TEMP_DIR"
+        tar -czf "$OUTPUT_DIR/topo-gen_${VERSION}.orig.tar.gz" "$SRC_NAME"
+        cd "$PROJECT_ROOT"
+        rm -rf "$SRC_DIR"
+        log_success "Created orig.tar.gz from source tree"
+    fi
+
+    # Extract orig tarball for debian packaging
+    cd "$SRC_TEMP_DIR"
+    tar -xzf "$OUTPUT_DIR/topo-gen_${VERSION}.orig.tar.gz"
+
+    # Create debian directory structure
+    DEBIAN_DIR="$SRC_DIR/debian"
+    mkdir -p "$DEBIAN_DIR"
+    mkdir -p "$DEBIAN_DIR/source"
+
+    # Create debian/source/format
+    echo "3.0 (quilt)" > "$DEBIAN_DIR/source/format"
+
+    # Create debian/control
+    cat > "$DEBIAN_DIR/control" << EOF
+Source: topo-gen
+Section: science
+Priority: optional
+Maintainer: $MAINTAINER
+Build-Depends: debhelper-compat (= 13),
+               cmake (>= 3.20),
+               g++ (>= 10),
+               libgdal-dev,
+               libeigen3-dev,
+               libtbb-dev,
+               libfreetype-dev,
+               libcurl4-openssl-dev,
+               libssl-dev,
+               zlib1g-dev,
+               libgmp-dev,
+               libmpfr-dev,
+               nlohmann-json3-dev
+Standards-Version: 4.6.0
+Homepage: https://github.com/matthewblock/topo-gen
+
+Package: topo-gen
+Architecture: any
+Depends: \${shlibs:Depends}, \${misc:Depends}
+Description: High-performance topographic model generator
+ Topographic Generator creates laser-cuttable topographic models from
+ elevation data. It supports SRTM elevation tiles, contour generation,
+ and exports to SVG (laser cutting) and STL (3D printing).
+ .
+ Features:
+  - High-performance C++ implementation with CGAL geometry processing
+  - Automatic SRTM elevation data downloading
+  - Contour polygon generation and simplification
+  - OpenStreetMap feature integration (roads, buildings, waterways)
+  - Multi-format export (SVG, STL, GeoJSON, Shapefile)
+  - Command-line interface and GUI application
+EOF
+
+    # Create debian/changelog
+    cat > "$DEBIAN_DIR/changelog" << EOF
+topo-gen ($VERSION-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- $MAINTAINER  $(date -R)
+EOF
+
+    # Create debian/rules
+    cat > "$DEBIAN_DIR/rules" << 'EOF'
+#!/usr/bin/make -f
+
+%:
+	dh $@ --buildsystem=cmake
+
+override_dh_auto_configure:
+	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release
+
+override_dh_auto_install:
+	dh_auto_install --destdir=debian/topo-gen
+EOF
+    chmod +x "$DEBIAN_DIR/rules"
+
+    # Create debian/copyright
+    cp "$PROJECT_ROOT/LICENSE" "$DEBIAN_DIR/copyright" 2>/dev/null || echo "MIT License" > "$DEBIAN_DIR/copyright"
+
+    # Create debian/compat
+    echo "13" > "$DEBIAN_DIR/compat"
+
+    # Build source package
+    log_info "Building source package with dpkg-source..."
+    cd "$SRC_DIR"
+    dpkg-source -b .
+
+    # Move source package files to output directory
+    mv "$SRC_TEMP_DIR"/*.dsc "$OUTPUT_DIR/" 2>/dev/null || true
+    mv "$SRC_TEMP_DIR"/*.debian.tar.xz "$OUTPUT_DIR/" 2>/dev/null || true
+
+    # Clean up
+    rm -rf "$SRC_TEMP_DIR"
+
+    echo ""
+    log_success "Debian source package created successfully!"
+    log_info "Source package files:"
+    ls -lh "$OUTPUT_DIR"/topo-gen_${VERSION}* | awk '{print "  " $9, "(" $5 ")"}'
+    echo ""
+    log_info "To build binary package from source:"
+    echo "  cd /path/to/build/dir"
+    echo "  dpkg-source -x $OUTPUT_DIR/topo-gen_${VERSION}-1.dsc"
+    echo "  cd topo-gen-$VERSION"
+    echo "  dpkg-buildpackage -us -uc"
+    echo ""
 fi
