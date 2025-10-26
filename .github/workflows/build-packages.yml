@@ -127,12 +127,13 @@ jobs:
           aqt list-qt windows desktop --modules 6.9.1 win64_msvc2022_64
 
           # Install Qt 6.9.1 for Windows with required modules
-          # Note: Module names don't have 'qt' prefix in aqt
-          # Modules: webengine (includes declarative), webchannel, svg, shadertools
+          # Note: qtbase (Core, Widgets, Gui, Network, Svg) is installed by default
+          # Note: qtdeclarative (QtQuick/QML) is installed by default
+          # Additional modules: qtwebengine, qtwebchannel, qtshadertools, qtpositioning, qtwebview
           Write-Host "`nInstalling Qt 6.9.1 with modules..."
           aqt install-qt windows desktop 6.9.1 win64_msvc2022_64 `
             -O C:\Qt `
-            -m qtwebengine qtwebchannel qtsvg qtshadertools qtdeclarative qtpositioning qtwebview
+            -m qtwebengine qtwebchannel qtshadertools qtpositioning qtwebview
 
           Write-Host "✓ Qt 6.9.1 installed successfully"
 
