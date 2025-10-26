@@ -24,10 +24,22 @@
     "zlib",
     "gmp",
     "mpfr",
-    "qtbase",
-    "qtsvg",
-    "qtwebengine",
-    "qtwebchannel"
+    {
+      "name": "qtbase",
+      "platform": "!windows"
+    },
+    {
+      "name": "qtsvg",
+      "platform": "!windows"
+    },
+    {
+      "name": "qtwebengine",
+      "platform": "!windows"
+    },
+    {
+      "name": "qtwebchannel",
+      "platform": "!windows"
+    }
   ],
   "builtin-baseline": "de4773aeb4cf9b5afe5e9f985ee34ceca7e003de"
 }

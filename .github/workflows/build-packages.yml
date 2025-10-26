@@ -304,20 +304,11 @@ jobs:
           # Configure vcpkg for release-only builds (skip debug to avoid Qt build issues)
           echo "VCPKG_BUILD_TYPE=release" >> $env:GITHUB_ENV
 
-          # Install dependencies WITHOUT Qt (using prebuilt Qt from aqtinstall instead)
-          # This avoids the qtdeclarative build failure and saves significant build time
-          echo "Installing non-Qt dependencies from vcpkg..."
-          vcpkg install --triplet x64-windows `
-            gdal[png]:x64-windows `
-            cgal:x64-windows `
-            eigen3:x64-windows `
-            tbb:x64-windows `
-            freetype:x64-windows `
-            curl:x64-windows `
-            openssl:x64-windows `
-            zlib:x64-windows `
-            gmp:x64-windows `
-            mpfr:x64-windows
+          # Install dependencies from vcpkg.json manifest
+          # Qt packages are excluded on Windows via platform filters in vcpkg.json
+          # Windows uses prebuilt Qt from aqtinstall instead
+          echo "Installing dependencies from vcpkg.json manifest..."
+          vcpkg install --triplet x64-windows --x-manifest-root=${{ github.workspace }}
 
           echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
           echo "✓ Dependencies installed with minimal features"
