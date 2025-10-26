@@ -414,9 +414,13 @@ jobs:
           fi
 
       - name: Run basic tests
+        shell: bash
         run: |
-          cd build
-          ./topo-gen --version || ./Release/topo-gen.exe --version || true
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            ./build/Release/topo-gen.exe --version || true
+          else
+            ./build/topo-gen --version || true
+          fi
 
       - name: Bundle dependencies (macOS)
         if: runner.os == 'macOS'

@@ -146,14 +146,18 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate inputs
-if [[ -z "$DEPS_DIR" ]]; then
-    log_error "Dependencies directory is required (--deps-dir)"
-    exit 1
-fi
+# Only require deps-dir for binary packages, not for source-only builds
+if [[ "$CREATE_SOURCE" == false ]]; then
+    if [[ -z "$DEPS_DIR" ]]; then
+        log_error "Dependencies directory is required for binary packages (--deps-dir)"
+        log_info "To create source packages only, use --source-rpm"
+        exit 1
+    fi
 
-if [[ ! -d "$DEPS_DIR" ]]; then
-    log_error "Dependencies directory not found: $DEPS_DIR"
-    exit 1
+    if [[ ! -d "$DEPS_DIR" ]]; then
+        log_error "Dependencies directory not found: $DEPS_DIR"
+        exit 1
+    fi
 fi
 
 if [[ "$INCLUDE_CLI" == true && ! -f "$CLI_PATH" ]]; then
@@ -189,27 +193,32 @@ log_info "  Version: $VERSION"
 log_info "  Architecture: $ARCHITECTURE"
 log_info "  Include CLI: $INCLUDE_CLI"
 log_info "  Include GUI: $INCLUDE_GUI"
+log_info "  Source package only: $CREATE_SOURCE"
 log_info "  Output: $OUTPUT_DIR"
 echo ""
 
-# Create rpmbuild directory structure
-TEMP_DIR=$(mktemp -d)
-RPMBUILD_DIR="$TEMP_DIR/rpmbuild"
+# Skip binary package creation if only building source packages without deps
+if [[ "$CREATE_SOURCE" == true && -z "$DEPS_DIR" ]]; then
+    log_info "Skipping binary package creation (source package only)"
+else
+    # Create rpmbuild directory structure
+    TEMP_DIR=$(mktemp -d)
+    RPMBUILD_DIR="$TEMP_DIR/rpmbuild"
 
-mkdir -p "$RPMBUILD_DIR"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-mkdir -p "$RPMBUILD_DIR/BUILD/topo-gen-$VERSION"
+    mkdir -p "$RPMBUILD_DIR"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+    mkdir -p "$RPMBUILD_DIR/BUILD/topo-gen-$VERSION"
 
-BUILDROOT="$RPMBUILD_DIR/BUILD/topo-gen-$VERSION"
+    BUILDROOT="$RPMBUILD_DIR/BUILD/topo-gen-$VERSION"
 
-mkdir -p "$BUILDROOT/usr/local/bin"
-mkdir -p "$BUILDROOT/opt/topo-gen/lib"
-mkdir -p "$BUILDROOT/opt/topo-gen/share/gdal"
-mkdir -p "$BUILDROOT/usr/share/applications"
-mkdir -p "$BUILDROOT/usr/share/icons/hicolor/256x256/apps"
-mkdir -p "$BUILDROOT/usr/share/man/man1"
-mkdir -p "$BUILDROOT/etc/profile.d"
+    mkdir -p "$BUILDROOT/usr/local/bin"
+    mkdir -p "$BUILDROOT/opt/topo-gen/lib"
+    mkdir -p "$BUILDROOT/opt/topo-gen/share/gdal"
+    mkdir -p "$BUILDROOT/usr/share/applications"
+    mkdir -p "$BUILDROOT/usr/share/icons/hicolor/256x256/apps"
+    mkdir -p "$BUILDROOT/usr/share/man/man1"
+    mkdir -p "$BUILDROOT/etc/profile.d"
 
-log_info "Staging package contents..."
+    log_info "Staging package contents..."
 
 # Copy CLI executable
 if [[ "$INCLUDE_CLI" == true ]]; then
@@ -473,6 +482,7 @@ else
     log_error "Failed to create RPM package"
     exit 1
 fi
+fi  # End of binary package creation conditional
 
 # Generate source RPM if requested
 if [[ "$CREATE_SOURCE" == true ]]; then
