@@ -502,9 +502,9 @@ elseif(BUILD_BENCHMARKS)
     message(STATUS "Benchmarks enabled but benchmarks directory not found - skipping benchmarks")
 endif()
 
-# Documentation (only if docs directory exists and Doxygen is found)
+# Documentation (only if docs directory has CMakeLists.txt and Doxygen is found)
 find_package(Doxygen QUIET)
-if(Doxygen_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/docs")
+if(Doxygen_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/docs/CMakeLists.txt")
     add_subdirectory(docs)
 endif()
 
