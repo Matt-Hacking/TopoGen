@@ -244,7 +244,11 @@ std::string CrashHandler::get_current_context() const {
 
 void CrashHandler::generate_test_crash_report() const {
     CrashContext test_context;
+#ifdef SIGUSR1
     test_context.signal_number = SIGUSR1;
+#else
+    test_context.signal_number = 0;  // Windows doesn't have SIGUSR1
+#endif
     test_context.signal_name = "TEST_SIGNAL";
     test_context.operation_name = "test_crash_report";
     test_context.current_stage = stage_stack_.empty() ? "unknown" : stage_stack_.back().stage_name;

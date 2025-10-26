@@ -172,7 +172,8 @@ void StackGuard::initialize_stack_detection() {
 
 #endif
 
-    // Fallback: use resource limits if no platform-specific method worked
+    // Fallback: use resource limits if no platform-specific method worked (Unix/POSIX only)
+#if !defined(_WIN32)
     if (stack_size_ == 0) {
         struct rlimit rl;
         if (getrlimit(RLIMIT_STACK, &rl) == 0) {
@@ -182,6 +183,7 @@ void StackGuard::initialize_stack_detection() {
             stack_base_ = static_cast<char*>(current_sp) + (stack_size_ / 2);
         }
     }
+#endif
 
 #ifdef _WIN32
     // Windows implementation

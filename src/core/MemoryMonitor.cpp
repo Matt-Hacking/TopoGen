@@ -19,6 +19,7 @@
 #include <sys/resource.h>
 #include <fstream>
 #elif _WIN32
+#define NOMINMAX  // Prevent Windows.h from defining min/max macros
 #include <windows.h>
 #include <psapi.h>
 #endif

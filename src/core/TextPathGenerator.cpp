@@ -10,6 +10,11 @@
 #include <iomanip>
 #include <limits>
 
+// Define M_PI if not already defined (MSVC doesn't define it by default)
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 namespace topo {
 
 TextPathGenerator::TextPathGenerator(const TextPathConfig& config)
