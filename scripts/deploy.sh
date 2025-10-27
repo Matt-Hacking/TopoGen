@@ -555,18 +555,28 @@ if [[ "$CREATE_BINARY" == true ]]; then
     mkdir -p "$STAGING_DIR/lib"
     mkdir -p "$STAGING_DIR/share"
 
-    # Copy executables
-    cp build/topo-gen "$STAGING_DIR/bin/"
-    log_success "Copied CLI executable"
+    # Copy executables (platform-specific paths)
+    if [[ "$TARGET_PLATFORM" == "windows" ]]; then
+        cp build/Release/topo-gen.exe "$STAGING_DIR/bin/"
+        log_success "Copied CLI executable"
 
-    if [[ "$TARGET_PLATFORM" == "macos" ]]; then
-        if [[ -d build/topo-gen-gui.app ]]; then
-            cp -R build/topo-gen-gui.app "$STAGING_DIR/"
-            log_success "Copied GUI application bundle"
+        if [[ -f build/Release/topo-gen-gui.exe ]]; then
+            cp build/Release/topo-gen-gui.exe "$STAGING_DIR/bin/"
+            log_success "Copied GUI executable"
         fi
-    elif [[ -f build/topo-gen-gui ]]; then
-        cp build/topo-gen-gui "$STAGING_DIR/bin/"
-        log_success "Copied GUI executable"
+    else
+        cp build/topo-gen "$STAGING_DIR/bin/"
+        log_success "Copied CLI executable"
+
+        if [[ "$TARGET_PLATFORM" == "macos" ]]; then
+            if [[ -d build/topo-gen-gui.app ]]; then
+                cp -R build/topo-gen-gui.app "$STAGING_DIR/"
+                log_success "Copied GUI application bundle"
+            fi
+        elif [[ -f build/topo-gen-gui ]]; then
+            cp build/topo-gen-gui "$STAGING_DIR/bin/"
+            log_success "Copied GUI executable"
+        fi
     fi
 
     # Bundle dependencies if requested
@@ -576,14 +586,22 @@ if [[ "$CREATE_BINARY" == true ]]; then
         BUNDLER_SCRIPT="$PACKAGING_DIR/${TARGET_PLATFORM}/bundle_deps.sh"
 
         if [[ -f "$BUNDLER_SCRIPT" ]]; then
-            # Bundle CLI dependencies
-            "$BUNDLER_SCRIPT" --cli "$STAGING_DIR/bin/topo-gen" --output-dir "$STAGING_DIR"
+            # Bundle CLI dependencies (platform-specific executable name)
+            if [[ "$TARGET_PLATFORM" == "windows" ]]; then
+                "$BUNDLER_SCRIPT" --cli "$STAGING_DIR/bin/topo-gen.exe" --output-dir "$STAGING_DIR"
 
-            # Bundle GUI dependencies if present
-            if [[ "$TARGET_PLATFORM" == "macos" && -d "$STAGING_DIR/topo-gen-gui.app" ]]; then
-                "$BUNDLER_SCRIPT" --gui "$STAGING_DIR/topo-gen-gui.app"
-            elif [[ -f "$STAGING_DIR/bin/topo-gen-gui" ]]; then
-                "$BUNDLER_SCRIPT" --gui "$STAGING_DIR/bin/topo-gen-gui" --output-dir "$STAGING_DIR"
+                if [[ -f "$STAGING_DIR/bin/topo-gen-gui.exe" ]]; then
+                    "$BUNDLER_SCRIPT" --gui "$STAGING_DIR/bin/topo-gen-gui.exe" --output-dir "$STAGING_DIR"
+                fi
+            else
+                "$BUNDLER_SCRIPT" --cli "$STAGING_DIR/bin/topo-gen" --output-dir "$STAGING_DIR"
+
+                # Bundle GUI dependencies if present
+                if [[ "$TARGET_PLATFORM" == "macos" && -d "$STAGING_DIR/topo-gen-gui.app" ]]; then
+                    "$BUNDLER_SCRIPT" --gui "$STAGING_DIR/topo-gen-gui.app"
+                elif [[ -f "$STAGING_DIR/bin/topo-gen-gui" ]]; then
+                    "$BUNDLER_SCRIPT" --gui "$STAGING_DIR/bin/topo-gen-gui" --output-dir "$STAGING_DIR"
+                fi
             fi
 
             log_success "Dependencies bundled"
