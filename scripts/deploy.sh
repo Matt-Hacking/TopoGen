@@ -579,29 +579,20 @@ if [[ "$CREATE_BINARY" == true ]]; then
         fi
     fi
 
-    # Bundle dependencies if requested
-    if [[ "$BUNDLE_DEPS" == true ]]; then
+    # Bundle dependencies if requested (skip on Windows - handled by MSI/ZIP packaging)
+    if [[ "$BUNDLE_DEPS" == true && "$TARGET_PLATFORM" != "windows" ]]; then
         log_info "Bundling dependencies..."
 
         BUNDLER_SCRIPT="$PACKAGING_DIR/${TARGET_PLATFORM}/bundle_deps.sh"
 
         if [[ -f "$BUNDLER_SCRIPT" ]]; then
-            # Bundle CLI dependencies (platform-specific executable name)
-            if [[ "$TARGET_PLATFORM" == "windows" ]]; then
-                "$BUNDLER_SCRIPT" --cli "$STAGING_DIR/bin/topo-gen.exe" --output-dir "$STAGING_DIR"
+            "$BUNDLER_SCRIPT" --cli "$STAGING_DIR/bin/topo-gen" --output-dir "$STAGING_DIR"
 
-                if [[ -f "$STAGING_DIR/bin/topo-gen-gui.exe" ]]; then
-                    "$BUNDLER_SCRIPT" --gui "$STAGING_DIR/bin/topo-gen-gui.exe" --output-dir "$STAGING_DIR"
-                fi
-            else
-                "$BUNDLER_SCRIPT" --cli "$STAGING_DIR/bin/topo-gen" --output-dir "$STAGING_DIR"
-
-                # Bundle GUI dependencies if present
-                if [[ "$TARGET_PLATFORM" == "macos" && -d "$STAGING_DIR/topo-gen-gui.app" ]]; then
-                    "$BUNDLER_SCRIPT" --gui "$STAGING_DIR/topo-gen-gui.app"
-                elif [[ -f "$STAGING_DIR/bin/topo-gen-gui" ]]; then
-                    "$BUNDLER_SCRIPT" --gui "$STAGING_DIR/bin/topo-gen-gui" --output-dir "$STAGING_DIR"
-                fi
+            # Bundle GUI dependencies if present
+            if [[ "$TARGET_PLATFORM" == "macos" && -d "$STAGING_DIR/topo-gen-gui.app" ]]; then
+                "$BUNDLER_SCRIPT" --gui "$STAGING_DIR/topo-gen-gui.app"
+            elif [[ -f "$STAGING_DIR/bin/topo-gen-gui" ]]; then
+                "$BUNDLER_SCRIPT" --gui "$STAGING_DIR/bin/topo-gen-gui" --output-dir "$STAGING_DIR"
             fi
 
             log_success "Dependencies bundled"
@@ -609,6 +600,8 @@ if [[ "$CREATE_BINARY" == true ]]; then
             log_warning "Bundler script not found: $BUNDLER_SCRIPT"
             log_warning "Dependencies not bundled"
         fi
+    elif [[ "$TARGET_PLATFORM" == "windows" ]]; then
+        log_info "Skipping dependency bundling (Windows uses MSI/ZIP packaging)"
     fi
 
     # Copy documentation
