@@ -344,6 +344,14 @@ jobs:
           $freeGB = [math]::Round((Get-PSDrive C).Free / 1GB, 2)
           Write-Host "✓ vcpkg cleanup complete - $freeGB GB free"
 
+      - name: Install zip utility (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "Installing zip utility for packaging..."
+          choco install zip -y
+          Write-Host "✓ zip utility installed"
+
       - name: Set up dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
