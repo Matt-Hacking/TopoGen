@@ -243,14 +243,6 @@ jobs:
             echo "No cached .deb files to restore"
           fi
 
-      - name: Cache CMake build directory (All platforms)
-        uses: actions/cache@v4
-        with:
-          path: build
-          key: ${{ runner.os }}-${{ matrix.config.arch }}-build-${{ hashFiles('**/CMakeLists.txt', '**/*.cpp', '**/*.hpp') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.config.arch }}-build-
-
       - name: Install ccache (macOS)
         if: runner.os == 'macOS'
         run: |
