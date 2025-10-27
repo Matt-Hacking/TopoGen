@@ -451,6 +451,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write  # Required to create releases
 
     steps:
       - name: Checkout code
