@@ -449,27 +449,53 @@ fi
 
 # Build if creating binary package
 if [[ "$CREATE_BINARY" == true ]]; then
-    if [[ ! -f build/topo-gen ]] || [[ "$CLEAN_BUILD" == true ]]; then
+    # Check if build artifacts exist (platform-specific paths)
+    BUILD_EXISTS=false
+    if [[ "$TARGET_PLATFORM" == "windows" ]]; then
+        [[ -f build/Release/topo-gen.exe ]] && BUILD_EXISTS=true
+    else
+        [[ -f build/topo-gen ]] && BUILD_EXISTS=true
+    fi
+
+    if [[ "$BUILD_EXISTS" == false ]] || [[ "$CLEAN_BUILD" == true ]]; then
         log_info "Building project..."
         mkdir -p build
         cd build
         cmake .. -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
-        make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+
+        # Use cmake --build for cross-platform compatibility
+        if [[ "$TARGET_PLATFORM" == "windows" ]]; then
+            cmake --build . --config "$BUILD_TYPE" --parallel
+        else
+            make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+        fi
         cd ..
         log_success "Build completed"
     else
         log_info "Build artifacts already exist, skipping build"
     fi
 
-    # Verify executables
-    if [[ ! -f build/topo-gen ]]; then
-        log_error "CLI executable not found: build/topo-gen"
-        exit 1
-    fi
-    log_success "CLI executable verified: build/topo-gen"
+    # Verify executables (platform-specific paths)
+    if [[ "$TARGET_PLATFORM" == "windows" ]]; then
+        if [[ ! -f build/Release/topo-gen.exe ]]; then
+            log_error "CLI executable not found: build/Release/topo-gen.exe"
+            exit 1
+        fi
+        log_success "CLI executable verified: build/Release/topo-gen.exe"
 
-    if [[ -f build/topo-gen-gui || -d build/topo-gen-gui.app ]]; then
-        log_success "GUI executable verified"
+        if [[ -f build/Release/topo-gen-gui.exe ]]; then
+            log_success "GUI executable verified: build/Release/topo-gen-gui.exe"
+        fi
+    else
+        if [[ ! -f build/topo-gen ]]; then
+            log_error "CLI executable not found: build/topo-gen"
+            exit 1
+        fi
+        log_success "CLI executable verified: build/topo-gen"
+
+        if [[ -f build/topo-gen-gui || -d build/topo-gen-gui.app ]]; then
+            log_success "GUI executable verified"
+        fi
     fi
 fi
 
