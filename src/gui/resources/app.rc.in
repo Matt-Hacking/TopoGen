@@ -8,8 +8,8 @@ IDI_ICON1 ICON "@CMAKE_CURRENT_SOURCE_DIR@/resources/icons/app_icon.ico"
 
 // Version Information
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION    0,22,2,0
-PRODUCTVERSION 0,22,2,0
+FILEVERSION    0,25,1,0
+PRODUCTVERSION 0,25,1,0
 FILEFLAGSMASK  VS_FFI_FILEFLAGSMASK
 FILEFLAGS      0x0L
 FILEOS         VOS__WINDOWS32
@@ -22,12 +22,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "Matthew Block"
             VALUE "FileDescription",  "Topographic Model Generator"
-            VALUE "FileVersion",      "0.22.002"
+            VALUE "FileVersion",      "0.25.001"
             VALUE "InternalName",     "topo-gen-gui"
             VALUE "LegalCopyright",   "Copyright (c) 2025 Matthew Block. MIT License."
             VALUE "OriginalFilename", "topo-gen-gui.exe"
             VALUE "ProductName",      "Topographic Generator"
-            VALUE "ProductVersion",   "0.22.002"
+            VALUE "ProductVersion",   "0.25.001"
         END
     END
     BLOCK "VarFileInfo"
