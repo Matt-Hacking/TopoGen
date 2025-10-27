@@ -16,8 +16,6 @@ jobs:
   build:
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
-    permissions:
-      packages: write  # Enable GitHub Packages for vcpkg binary caching
     strategy:
       fail-fast: false
       matrix:
@@ -168,50 +166,29 @@ jobs:
             ${{ runner.os }}-choco-v1-
             ${{ runner.os }}-choco-
 
-      - name: Setup vcpkg binary cache with GitHub Packages (Windows)
+      - name: Setup vcpkg binary cache with GitHub Actions Cache (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # Use GitHub Packages (NuGet) for vcpkg binary caching
-          $owner = "${{ github.repository_owner }}"
-          $feedUrl = "https://nuget.pkg.github.com/$owner/index.json"
-          echo "VCPKG_BINARY_SOURCES=clear;nuget,$feedUrl,readwrite" >> $env:GITHUB_ENV
+          # Use GitHub Actions cache instead of GitHub Packages to avoid package clutter
+          # This provides the same performance benefits without creating public packages
+          $cacheDir = "${{ runner.temp }}\vcpkg-bincache"
+          New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
 
-          # Configure NuGet authentication with GitHub token
-          $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+          echo "VCPKG_BINARY_SOURCES=clear;files,$cacheDir,readwrite" >> $env:GITHUB_ENV
 
-          # Fetch nuget.exe path
-          $nugetOutput = & "$vcpkgRoot\vcpkg.exe" fetch nuget
-          $nugetPath = ($nugetOutput | Select-Object -Last 1).Trim()
-
-          Write-Host "NuGet path: $nugetPath"
-
-          # Remove existing GitHubPackages source if present (ignore errors)
-          & "$nugetPath" sources remove -name "GitHubPackages" 2>$null
-
-          # Add GitHub Packages as NuGet source with authentication (for READ)
-          & "$nugetPath" sources add `
-            -source $feedUrl `
-            -storepasswordincleartext `
-            -name "GitHubPackages" `
-            -username "${{ github.actor }}" `
-            -password "${{ secrets.GITHUB_TOKEN }}"
-
-          # Set API key for NuGet push operations (for WRITE)
-          & "$nugetPath" setapikey "${{ secrets.GITHUB_TOKEN }}" -Source $feedUrl
-
-          Write-Host "✓ vcpkg binary caching configured with GitHub Packages (read+write)"
+          Write-Host "✓ vcpkg binary caching configured with GitHub Actions Cache"
+          Write-Host "  Cache directory: $cacheDir"
 
       - name: Cache vcpkg binary packages (Windows)
         if: runner.os == 'Windows'
         uses: actions/cache@v4
         with:
-          path: C:\Users\runneradmin\AppData\Local\vcpkg\archives
-          key: ${{ runner.os }}-vcpkg-binary-v2-${{ hashFiles('vcpkg.json', 'CMakeLists.txt') }}
+          path: ${{ runner.temp }}\vcpkg-bincache
+          key: ${{ runner.os }}-vcpkg-binary-v3-${{ hashFiles('vcpkg.json', 'CMakeLists.txt') }}
           restore-keys: |
+            ${{ runner.os }}-vcpkg-binary-v3-
             ${{ runner.os }}-vcpkg-binary-v2-
-            ${{ runner.os }}-vcpkg-v2-
-            ${{ runner.os }}-vcpkg-v1-
 
       - name: Cache vcpkg downloads (Windows)
         if: runner.os == 'Windows'
